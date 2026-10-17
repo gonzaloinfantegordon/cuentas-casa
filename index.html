@@ -215,6 +215,27 @@ dialog::backdrop{background:rgba(10,20,16,.45)}
 .code{font-family:var(--f-num);background:var(--sunk);border-radius:8px;padding:8px 10px;word-break:break-all;font-size:.82rem;display:flex;gap:8px;align-items:center;justify-content:space-between}
 .code span{min-width:0}
 .code .btn{flex-shrink:0}
+
+/* Móvil: pestañas abajo, como una app */
+nav.tabs .ti{display:none;width:22px;height:22px}
+@media(max-width:700px){
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:15;margin:0;width:auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;overflow:visible;
+    background:var(--surface);border-top:1px solid var(--line);border-bottom:0;
+    padding:6px max(4px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(4px,env(safe-area-inset-left,0px))}
+  nav.tabs button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0 2px;margin:0;border:0;font-size:10.5px;font-weight:600;min-width:0}
+  nav.tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  nav.tabs .ti{display:block}
+  nav.tabs button[aria-selected="true"]{color:var(--accent)}
+  header.top{padding-bottom:4px}
+  #view{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  .fab{bottom:calc(env(safe-area-inset-bottom,0px) + 76px)}
+  .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 140px)}
+}
+.field input,.field select{min-height:46px}
+.datebox{overflow:hidden;border-radius:10px;min-width:0}
+.field input[type=date]{width:100%;height:46px;line-height:24px;text-align:left}
+.field input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
+.field input[type=date]::-webkit-calendar-picker-indicator{margin:0}
 .loading{opacity:.55;transition:opacity .2s}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -241,11 +262,11 @@ dialog::backdrop{background:rgba(10,20,16,.45)}
       <button id="prevM" aria-label="Mes anterior">‹</button><span id="mLabel"></span><button id="nextM" aria-label="Mes siguiente">›</button>
     </div>
     <nav class="tabs" role="tablist">
-      <button role="tab" data-tab="resumen" aria-selected="true">Resumen</button>
-      <button role="tab" data-tab="movs">Movimientos</button>
-      <button role="tab" data-tab="fijos">Fijos</button>
-      <button role="tab" data-tab="patri">Ahorro e inversión</button>
-      <button role="tab" data-tab="ajustes">Ajustes</button>
+      <button role="tab" data-tab="resumen" aria-selected="true"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg><span>Resumen</span></button>
+      <button role="tab" data-tab="movs"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r=".6" fill="currentColor"/><circle cx="4" cy="12" r=".6" fill="currentColor"/><circle cx="4" cy="18" r=".6" fill="currentColor"/></svg><span>Movimientos</span></button>
+      <button role="tab" data-tab="fijos"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Fijos</span></button>
+      <button role="tab" data-tab="patri"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Patrimonio</span></button>
+      <button role="tab" data-tab="ajustes"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Ajustes</span></button>
     </nav>
   </header>
   <main id="view"></main>
@@ -659,9 +680,9 @@ function sheetMov(){
     <div class="seg" role="group" aria-label="Tipo">${[['gasto','Gasto'],['ingreso','Ingreso'],['ahorro','Ahorro'],['inversion','Inversión']].map(([k,l])=>`<button type="button" aria-pressed="${t===k}" onclick="sync();F.tipo='${k}';F.categoria_id=null;F.posicion_id=${(k==='ahorro'||k==='inversion')?`defaultPos('${k}')`:'null'};sheetMov()">${l}</button>`).join('')}</div>
     <div class="field"><label for="fImp">Importe (€)</label><input id="fImp" class="amount" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(F.importe)}" ${F.id?'':'autofocus'} required></div>
     ${selector}
-    <div class="row2"><div class="field"><label for="fFecha">Fecha</label><input id="fFecha" type="date" value="${esc(F.fecha)}" required></div>
-    <div class="field"><label for="fQuien">Quién</label><input id="fQuien" value="${esc(F.quien||'')}" placeholder="Nombre"></div></div>
-    <div class="field"><label for="fNota">Nota</label><input id="fNota" value="${esc(F.nota||'')}" placeholder="Opcional"></div>
+    <div class="field"><label for="fNota">Nota</label><input id="fNota" value="${esc(F.nota||'')}" placeholder="Opcional: Mercadona, cena con amigos…"></div>
+    <div class="field"><label for="fFecha">Fecha</label><div class="datebox"><input id="fFecha" type="date" value="${esc(F.fecha)}" required></div></div>
+    <div class="field"><label for="fQuien">Quién</label><input id="fQuien" value="${esc(F.quien||'')}" placeholder="Nombre"></div>
     ${t==='gasto'?`<label class="check"><input type="checkbox" id="fFijo" ${F.fijo?'checked':''}> Cuenta como gasto fijo</label>`:''}
     <div id="fErr" class="err" hidden></div>
     ${F.confirm?`<div class="confirm"><span>¿Borrar este movimiento?</span><button type="button" class="btn small danger" onclick="anular()">Sí, borrar</button><button type="button" class="btn small" onclick="F.confirm=false;sync();sheetMov()">No</button></div>`:''}

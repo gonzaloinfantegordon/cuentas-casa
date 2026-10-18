@@ -27,6 +27,7 @@
   --f-display:"Bricolage Grotesque",ui-rounded,system-ui,sans-serif;
   --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --c1:#2f6fa8; --c2:#c46a2a; --c3:#3d8b5e; --c4:#8a5bb5; --c5:#b8475f; --c6:#9a8420; --c7:#9fb0a8;
   --r:12px;
   color-scheme:light;
 }
@@ -38,6 +39,7 @@
   --ahorro:#7fb3e6; --ahorro-soft:#172b3d;
   --inv:#b49ae8; --inv-soft:#2a2240;
   --warn:#e5b54a; --warn-soft:#352a10;
+  --c1:#7fb3e6; --c2:#eb9a5e; --c3:#6fc493; --c4:#b79ae6; --c5:#ec8aa0; --c6:#d6c25a; --c7:#55665e;
   color-scheme:dark;}}
 :root[data-theme="dark"]{
   --bg:#0f1714; --surface:#16211d; --sunk:#1c2924; --line:#2a3a33;
@@ -47,6 +49,7 @@
   --ahorro:#7fb3e6; --ahorro-soft:#172b3d;
   --inv:#b49ae8; --inv-soft:#2a2240;
   --warn:#e5b54a; --warn-soft:#352a10;
+  --c1:#7fb3e6; --c2:#eb9a5e; --c3:#6fc493; --c4:#b79ae6; --c5:#ec8aa0; --c6:#d6c25a; --c7:#55665e;
   color-scheme:dark;}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -236,6 +239,27 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 .field input[type=date]{width:100%;height:46px;line-height:24px;text-align:left}
 .field input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
 .field input[type=date]::-webkit-calendar-picker-indicator{margin:0}
+
+.gear{border:1px solid var(--line);background:var(--surface);width:40px;height:40px;border-radius:999px;display:grid;place-items:center;cursor:pointer;color:var(--muted);flex:none}
+.gear[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(min-width:860px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.kpi b{font-family:var(--f-num);font-weight:500;font-size:1.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi small{color:var(--muted)}
+.heat{border-collapse:separate;border-spacing:3px;width:100%;font-size:.84rem}
+.heat th{font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:2px 4px;text-align:right;white-space:nowrap}
+.heat th:first-child{text-align:left}
+.heat td{padding:6px 6px;border-radius:6px;text-align:right;white-space:nowrap;font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.heat td.c{font-family:var(--f-body);text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.heat td.top{font-weight:600;outline:1.5px solid var(--gasto);outline-offset:-1.5px}
+.heat td.avg{color:var(--muted)}
+.heat tr.click{cursor:pointer}
+.heat tr.sel td.c{color:var(--accent);font-weight:600}
+.delta{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 12px;align-items:baseline}
+.delta .up{color:var(--gasto)} .delta .down{color:var(--accent)}
+.delta>span{padding:7px 0;border-bottom:1px dashed var(--line)}
+.delta>span.l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .loading{opacity:.55;transition:opacity .2s}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -261,12 +285,13 @@ nav.tabs .ti{display:none;width:22px;height:22px}
     <div class="month" aria-label="Mes">
       <button id="prevM" aria-label="Mes anterior">‹</button><span id="mLabel"></span><button id="nextM" aria-label="Mes siguiente">›</button>
     </div>
+    <button id="gearBtn" class="gear" aria-label="Ajustes" title="Ajustes"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="resumen" aria-selected="true"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg><span>Resumen</span></button>
       <button role="tab" data-tab="movs"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r=".6" fill="currentColor"/><circle cx="4" cy="12" r=".6" fill="currentColor"/><circle cx="4" cy="18" r=".6" fill="currentColor"/></svg><span>Movimientos</span></button>
+      <button role="tab" data-tab="stats"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Estadísticas</span></button>
       <button role="tab" data-tab="fijos"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Fijos</span></button>
       <button role="tab" data-tab="patri"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Patrimonio</span></button>
-      <button role="tab" data-tab="ajustes"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Ajustes</span></button>
     </nav>
   </header>
   <main id="view"></main>
@@ -326,6 +351,7 @@ async function load(){
     D = await rpc('datos',{p_desde:desde,p_hasta:hasta});
     D.catById = Object.fromEntries(D.categorias.map(c=>[c.id,c]));
     D.posById = Object.fromEntries(D.posiciones.map(p=>[p.id,p]));
+    S = null;
     render();
   }catch(e){
     if(e.code==='28000'){ logout('El código de acceso no es correcto.'); return }
@@ -390,6 +416,8 @@ function render(){
   if(tab==='fijos') v.innerHTML = vFijos();
   if(tab==='patri') v.innerHTML = vPatri();
   if(tab==='ajustes') v.innerHTML = vAjustes();
+  if(tab==='stats') renderStats();
+  $('#gearBtn').setAttribute('aria-pressed', tab==='ajustes');
 }
 
 function vResumen(){
@@ -502,6 +530,95 @@ function chartHist(){
   g+=`<line x1="${left}" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)"/>`;
   return `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Ingresos y gastos de los últimos 12 meses">${g}</svg>
     <div class="legend"><span><i class="dot" style="background:var(--accent)"></i>Ingresos</span><span><i class="dot" style="background:var(--gasto)"></i>Gastos</span></div>`;
+}
+
+
+/* ---------- estadísticas ---------- */
+let statsN = +(store.get('statsN')||6), S = null, statsKey = '', statsCat = null;
+async function renderStats(){
+  const v=$('#view'); const key=mes+'|'+statsN;
+  if(S && statsKey===key){ v.innerHTML=vStats(); return }
+  v.innerHTML = `<div class="panel" style="margin-top:16px"><p class="muted">Calculando estadísticas…</p></div>`;
+  try{ S = await rpc('estadisticas',{p_hasta:ymRange(mes)[1],p_meses:statsN}); statsKey=key; if(tab==='stats') v.innerHTML=vStats() }
+  catch(e){ v.innerHTML=`<div class="panel" style="margin-top:16px"><p class="err">${esc(e.message)}</p><button class="btn" onclick="S=null;renderStats()">Reintentar</button></div>` }
+}
+function vStats(){
+  const months=[]; for(let i=statsN-1;i>=0;i--) months.push(ymAdd(mes,-i));
+  const M = {}; months.forEach(m=>M[m]={total:0,fijo:0,var:0,cats:{}});
+  S.cats.forEach(r=>{ const o=M[r.mes]; if(!o) return; const k=r.categoria_id||'_'; o.cats[k]=(o.cats[k]||0)+ +r.total; o.total+= +r.total; if(r.fijo) o.fijo+= +r.total; else o.var+= +r.total });
+  const ING={}; S.ingresos.forEach(r=>ING[r.mes]=+r.total);
+  const catTot={}; months.forEach(m=>Object.entries(M[m].cats).forEach(([k,v])=>catTot[k]=(catTot[k]||0)+v));
+  const cats=Object.keys(catTot).sort((a,b)=>catTot[b]-catTot[a]);
+  const catInfo=k=>D.catById[k]||{nombre:'Sin categoría',icono:'•'};
+  const conDatos=months.filter(m=>M[m].total>0);
+  const chips=[3,6,12].map(n=>`<button class="chip" aria-pressed="${statsN===n}" onclick="statsN=${n};store.set('statsN',${n});renderStats()">${n} meses</button>`).join('');
+  const head=`<div class="panel" style="margin-top:16px"><header style="margin-bottom:0"><div><h2>Estadísticas</h2><small class="muted">${esc(cap(fmtMes(months[0])))} – ${esc(fmtMes(mes))}</small></div><div class="filters">${chips}</div></header></div>`;
+  if(!conDatos.length) return head+`<div class="panel" style="margin-top:14px"><div class="empty">Todavía no hay gastos en este periodo. Las estadísticas aparecen en cuanto apuntéis el primero.</div></div>`;
+
+  // KPIs
+  const media=conDatos.reduce((a,m)=>a+M[m].total,0)/conDatos.length;
+  const caro=conDatos.reduce((a,m)=>M[m].total>M[a].total?m:a,conDatos[0]);
+  const barato=conDatos.reduce((a,m)=>M[m].total<M[a].total?m:a,conDatos[0]);
+  const prev=conDatos.filter(m=>m<mes); const mediaPrev=prev.length?prev.reduce((a,m)=>a+M[m].total,0)/prev.length:0;
+  const dAct = mediaPrev? (M[mes].total-mediaPrev)/mediaPrev : null;
+  const kpis=`<div class="kpis" style="margin-top:14px">
+    <div class="kpi"><small>Gasto medio al mes</small><b>${eur(media,false)}</b><small>${conDatos.length} mes${conDatos.length>1?'es':''} con datos</small></div>
+    <div class="kpi"><small>Mes con más gasto</small><b>${esc(cap(fmtMes(caro)))}</b><small>${eur(M[caro].total,false)}</small></div>
+    <div class="kpi"><small>Mes con menos gasto</small><b>${esc(cap(fmtMes(barato)))}</b><small>${eur(M[barato].total,false)}</small></div>
+    <div class="kpi"><small>${esc(cap(fmtMes(mes)))} frente a la media</small><b class="${dAct==null?'':dAct>0?'neg':'pos'}">${dAct==null?'—':(dAct>0?'+':'')+pct(dAct)}</b><small>${dAct==null?'sin meses anteriores':eur(M[mes].total,false)+' vs '+eur(mediaPrev,false)}</small></div>
+  </div>`;
+
+  // gráfico apilado
+  const top=cats.slice(0,6); const color=i=>`var(--c${i+1})`;
+  const W=360,H=190,L=34,T=12,B=24, step=(W-L)/months.length, bw=Math.min(28,step*0.62);
+  const max=Math.max(1,...months.map(m=>M[m].total));
+  const nice=(()=>{ const p=Math.pow(10,Math.floor(Math.log10(max))); return [1,2,2.5,5,10].map(k=>k*p).find(k=>k*4>=max)||p*10 })();
+  const y=v=>T+(H-T-B)*(1-v/(Math.ceil(max/nice)*nice));
+  let g=''; for(let k=0;k*nice<=Math.ceil(max/nice)*nice;k++){ const yy=y(k*nice); g+=`<line x1="${L}" x2="${W}" y1="${yy}" y2="${yy}" stroke="var(--line)" ${k?'stroke-dasharray="2 3"':''}/><text x="${L-4}" y="${yy+3}" text-anchor="end" font-size="8" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${nf0.format(k*nice)}</text>` }
+  months.forEach((m,i)=>{ const x=L+i*step+(step-bw)/2; let acc=0;
+    const parts=top.map((k,j)=>[M[m].cats[k]||0,color(j),catInfo(k).nombre]); const resto=M[m].total-parts.reduce((a,p)=>a+p[0],0); parts.push([resto,'var(--c7)','Resto']);
+    parts.forEach(([v,c,n])=>{ if(v<=0) return; const y1=y(acc+v), y0=y(acc); g+=`<rect x="${x}" y="${y1}" width="${bw}" height="${Math.max(0,y0-y1-0.6)}" fill="${c}"><title>${esc(fmtMes(m))} · ${esc(n)}: ${eur(v)}</title></rect>`; acc+=v });
+    if(M[m].total) g+=`<text x="${x+bw/2}" y="${y(M[m].total)-4}" text-anchor="middle" font-size="7.5" fill="var(--ink)" font-family="IBM Plex Mono,monospace">${nf0.format(M[m].total)}</text>`;
+    g+=`<text x="${x+bw/2}" y="${H-8}" text-anchor="middle" font-size="8.5" fill="${m===mes?'var(--ink)':'var(--muted)'}" font-weight="${m===mes?700:400}">${fmtMesCorto(m)}</text>` });
+  const legend=top.map((k,j)=>`<span><i class="dot" style="background:${color(j)}"></i>${esc(catInfo(k).nombre)}</span>`).join('')+(cats.length>6?`<span><i class="dot" style="background:var(--c7)"></i>Resto</span>`:'');
+  const chart=`<section class="panel chart"><header><h2>Gasto por mes</h2><small class="muted">por categoría</small></header><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gasto mensual por categoría">${g}</svg><div class="legend">${legend}</div></section>`;
+
+  // mapa de calor
+  const rows=cats.map(k=>{ const vals=months.map(m=>M[m].cats[k]||0); const mx=Math.max(...vals); const n=vals.filter(v=>v>0).length; const avg=catTot[k]/Math.max(1,conDatos.length);
+    const c=catInfo(k);
+    return `<tr class="click ${statsCat===k?'sel':''}" onclick="statsCat='${k}';$('#view').innerHTML=vStats();document.getElementById('detalle').scrollIntoView({block:'nearest',behavior:'smooth'})"><td class="c">${esc(c.icono)} ${esc(c.nombre)}</td>${vals.map(v=>`<td class="${v&&v===mx&&n>1?'top':''}" style="${v?`background:color-mix(in srgb,var(--gasto) ${Math.round(8+47*v/mx)}%,transparent)`:''}">${v?nf0.format(v):'<span class="muted">·</span>'}</td>`).join('')}<td class="avg">${nf0.format(avg)}</td></tr>` }).join('');
+  const totRow=`<tr><td class="c"><b>Total</b></td>${months.map(m=>`<td><b>${M[m].total?nf0.format(M[m].total):'·'}</b></td>`).join('')}<td class="avg"><b>${nf0.format(media)}</b></td></tr>`;
+  const heat=`<section class="panel"><header><h2>Qué mes gastáis más en qué</h2><small class="muted">€ · el recuadro marca el mes más alto de cada categoría · toca una fila</small></header>
+    <div class="scroll"><table class="heat"><thead><tr><th>Categoría</th>${months.map(m=>`<th>${fmtMesCorto(m)}</th>`).join('')}<th>Media</th></tr></thead><tbody>${rows}${totRow}</tbody></table></div></section>`;
+
+  // detalle categoría
+  const sel = statsCat && catTot[statsCat]!=null ? statsCat : cats[0];
+  const vals=months.map(m=>M[m].cats[sel]||0); const avgSel=catTot[sel]/Math.max(1,conDatos.length); const mxS=Math.max(1,...vals,avgSel);
+  const W2=360,H2=150,L2=34,T2=14,B2=22,st2=(W2-L2)/months.length,bw2=Math.min(26,st2*0.6); const y2=v=>T2+(H2-T2-B2)*(1-v/mxS);
+  let g2=`<line x1="${L2}" x2="${W2}" y1="${y2(0)}" y2="${y2(0)}" stroke="var(--muted)"/>`;
+  months.forEach((m,i)=>{ const x=L2+i*st2+(st2-bw2)/2, v=vals[i]; g2+=`<rect x="${x}" y="${y2(v)}" width="${bw2}" height="${Math.max(0,y2(0)-y2(v))}" rx="2" fill="${m===mes?'var(--gasto)':'var(--c1)'}"><title>${esc(fmtMes(m))}: ${eur(v)}</title></rect>`;
+    if(v) g2+=`<text x="${x+bw2/2}" y="${y2(v)-4}" text-anchor="middle" font-size="7.5" fill="var(--ink)" font-family="IBM Plex Mono,monospace">${nf0.format(v)}</text>`;
+    g2+=`<text x="${x+bw2/2}" y="${H2-7}" text-anchor="middle" font-size="8.5" fill="var(--muted)">${fmtMesCorto(m)}</text>` });
+  g2+=`<line x1="${L2}" x2="${W2}" y1="${y2(avgSel)}" y2="${y2(avgSel)}" stroke="var(--ink)" stroke-dasharray="4 3"/><text x="${L2-4}" y="${y2(avgSel)+3}" text-anchor="end" font-size="8" fill="var(--ink)" font-family="IBM Plex Mono,monospace">${nf0.format(avgSel)}</text>`;
+  const ci=catInfo(sel);
+  const detalle=`<section class="panel chart" id="detalle"><header><h2>${esc(ci.icono)} ${esc(ci.nombre)}</h2><small class="muted">la línea es la media: ${eur(avgSel,false)}/mes</small></header><svg viewBox="0 0 ${W2} ${H2}" role="img" aria-label="Gasto mensual en ${esc(ci.nombre)}">${g2}</svg>
+    <div class="ledger"><div class="row"><span>Total del periodo</span><span class="num">${eur(catTot[sel])}</span></div><div class="row"><span>Peso sobre el gasto total</span><span class="num">${pct(catTot[sel]/months.reduce((a,m)=>a+M[m].total,0))}</span></div></div></section>`;
+
+  // cambios este mes vs media
+  const ch = prev.length ? cats.map(k=>{ const avgP=prev.reduce((a,m)=>a+(M[m].cats[k]||0),0)/prev.length; const now=M[mes].cats[k]||0; return {k,now,avgP,d:now-avgP} }).filter(x=>Math.abs(x.d)>=1).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,8) : [];
+  const cambios=`<section class="panel"><header><h2>${esc(cap(fmtMes(mes)))} frente a la media</h2><small class="muted">de ${prev.length} mes${prev.length===1?'':'es'} anterior${prev.length===1?'':'es'}</small></header>
+    ${ch.length?`<div class="delta">${ch.map(x=>`<span class="l">${esc(catInfo(x.k).icono)} ${esc(catInfo(x.k).nombre)}</span><span class="num muted">${nf0.format(x.now)} / ${nf0.format(x.avgP)}</span><span class="num ${x.d>0?'up':'down'}">${x.d>0?'▲ +':'▼ −'}${eur(Math.abs(x.d),false)}</span>`).join('')}</div>
+      <p class="muted" style="margin:10px 0 0"><small>Este mes / media. Si el mes está en curso, lo normal es que salga por debajo.</small></p>`:'<div class="empty">Hace falta al menos un mes anterior con gastos para comparar.</div>'}</section>`;
+
+  // fijos vs variables y por persona
+  const P={}; S.quien.forEach(r=>{ P[r.quien]=P[r.quien]||{tot:0,mes:0}; P[r.quien].tot+= +r.total; if(r.mes===mes) P[r.quien].mes+= +r.total });
+  const pers=Object.entries(P).sort((a,b)=>b[1].tot-a[1].tot);
+  const fv=`<section class="panel"><header><h2>Fijos, variables e ingresos</h2></header><div class="scroll"><table class="tbl"><thead><tr><th>Mes</th><th class="r">Ingresos</th><th class="r">Fijos</th><th class="r">Variables</th><th class="r">Ahorro</th></tr></thead><tbody>
+    ${months.slice().reverse().map(m=>{ const ing=ING[m]||0, ah=ing-M[m].total; return `<tr><td>${esc(cap(fmtMes(m)))}</td><td class="r num">${nf0.format(ing)}</td><td class="r num">${nf0.format(M[m].fijo)}</td><td class="r num">${nf0.format(M[m].var)}</td><td class="r num ${ing? (ah>=0?'pos':'neg'):''}">${ing?pct(ah/ing):'—'}</td></tr>`}).join('')}
+    </tbody></table></div><p class="muted" style="margin:8px 0 0"><small>«Ahorro» es lo que sobra de los ingresos después de los gastos.</small></p></section>`;
+  const per=`<section class="panel"><header><h2>Variables por persona</h2><small class="muted">quién lo apuntó</small></header>${pers.length?`<div class="ledger">${pers.map(([q,v])=>`<div class="row"><span>${esc(q)}</span><span class="num">${eur(v.tot,false)} <small class="muted">· este mes ${eur(v.mes,false)}</small></span></div>`).join('')}</div>`:'<div class="empty">Sin datos.</div>'}</section>`;
+
+  return head+kpis+`<div class="grid two">${'<div class="stack">'+chart+heat+'</div>'}${'<div class="stack">'+detalle+cambios+fv+per+'</div>'}</div>`;
 }
 
 function vMovs(){
@@ -797,6 +914,7 @@ document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>setTab(b.d
 $('#prevM').onclick=()=>{ mes=ymAdd(mes,-1); load() };
 $('#nextM').onclick=()=>{ mes=ymAdd(mes,1); load() };
 $('#fab').onclick=()=>nuevo('gasto');
+$('#gearBtn').onclick=()=>setTab(tab==='ajustes'?'resumen':'ajustes');
 
 function showApp(){ $('#login').hidden=true; $('#app').hidden=false; $('#fab').hidden=false; load() }
 function logout(msg){ TOKEN=null; store.set('token',null); D=null; $('#app').hidden=true; $('#fab').hidden=true; $('#login').hidden=false; $('#who').value=WHO; const e=$('#loginErr'); e.hidden=!msg; e.textContent=msg||'' }

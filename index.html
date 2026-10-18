@@ -775,13 +775,13 @@ dlg.addEventListener('click',e=>{ if(e.target===dlg) closeSheet() });
 let F = null; // estado del formulario de movimiento
 function nuevo(tipo='gasto',importe){
   const hoy = todayISO(); const fecha = hoy.startsWith(mes) ? hoy : ymRange(mes)[1] < hoy ? ymRange(mes)[1] : hoy;
-  F = {id:null,tipo,importe:importe?String(importe).replace('.',','):'',categoria_id:null,posicion_id:null,fecha,nota:'',quien:WHO,confirm:false};
+  F = {id:null,tipo,importe:importe?String(importe).replace('.',','):'',categoria_id:null,posicion_id:null,fecha,nota:'',quien:WHO,confirm:false,aviso:null,forzar:false};
   if(tipo==='ahorro'||tipo==='inversion') F.posicion_id = defaultPos(tipo);
   sheetMov();
 }
 function editar(id){
   const m = D.movimientos.find(x=>x.id===id); if(!m) return;
-  F = {...m, importe:nf.format(m.importe).replace(/\./g,''), confirm:false};
+  F = {...m, importe:nf.format(m.importe).replace(/\./g,''), confirm:false, aviso:null, forzar:false};
   sheetMov();
 }
 function defaultPos(tipo){ const P=D.posiciones.filter(p=>p.activa && (tipo==='ahorro'? p.tipo==='liquidez' : p.tipo!=='liquidez')); return P[0]?.id||null }
@@ -795,13 +795,14 @@ function sheetMov(){
   openSheet(`<h3>${F.id?'Editar movimiento':'Apuntar'}</h3>
   <form class="form" onsubmit="event.preventDefault();guardarMov()">
     <div class="seg" role="group" aria-label="Tipo">${[['gasto','Gasto'],['ingreso','Ingreso'],['ahorro','Ahorro'],['inversion','Inversión']].map(([k,l])=>`<button type="button" aria-pressed="${t===k}" onclick="sync();F.tipo='${k}';F.categoria_id=null;F.posicion_id=${(k==='ahorro'||k==='inversion')?`defaultPos('${k}')`:'null'};sheetMov()">${l}</button>`).join('')}</div>
-    <div class="field"><label for="fImp">Importe (€)</label><input id="fImp" class="amount" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(F.importe)}" ${F.id?'':'autofocus'} required></div>
+    <div class="field"><label for="fImp">Importe (€)</label><input id="fImp" class="amount" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(F.importe)}" ${F.id?'':'autofocus'} required>${(t==='ahorro'||t==='inversion')?`<small class="muted">Disponible por repartir en ${esc(fmtMes(mes))}: <b>${eur(Math.max(0,calc().porAsignar+(F.id&&(F.tipo==='ahorro'||F.tipo==='inversion')?(+(D.movimientos.find(m=>m.id===F.id)||{}).importe||0):0)))}</b></small>`:''}</div>
     ${selector}
-    <div class="field"><label for="fNota">Nota</label><input id="fNota" value="${esc(F.nota||'')}" placeholder="Opcional: Mercadona, cena con amigos…"></div>
+    <div class="field"><label for="fNota">Nota</label><input id="fNota" value="${esc(F.nota||'')}" placeholder="${t==='gasto'?'Opcional: Mercadona, cena con amigos…':t==='ingreso'?'Opcional: nómina de octubre…':'Opcional: transferencia mensual…'}"></div>
     <div class="field"><label for="fFecha">Fecha</label><div class="datebox"><input id="fFecha" type="date" value="${esc(F.fecha)}" required></div></div>
     <div class="field"><label for="fQuien">Quién</label><input id="fQuien" value="${esc(F.quien||'')}" placeholder="Nombre"></div>
     ${t==='gasto'?`<label class="check"><input type="checkbox" id="fFijo" ${F.fijo?'checked':''}> Cuenta como gasto fijo</label>`:''}
     <div id="fErr" class="err" hidden></div>
+    ${F.aviso?`<div class="confirm" style="background:var(--warn-soft)"><span>${F.aviso}</span><button type="button" class="btn small" onclick="F.forzar=true;guardarMov()">Guardar igualmente</button><button type="button" class="btn small" onclick="F.aviso=null;sync();sheetMov()">Corregir</button></div>`:''}
     ${F.confirm?`<div class="confirm"><span>¿Borrar este movimiento?</span><button type="button" class="btn small danger" onclick="anular()">Sí, borrar</button><button type="button" class="btn small" onclick="F.confirm=false;sync();sheetMov()">No</button></div>`:''}
     <div class="actions">${F.id&&!F.confirm?`<button type="button" class="btn danger left" onclick="sync();F.confirm=true;sheetMov()">Borrar</button>`:''}<button type="button" class="btn" onclick="closeSheet()">Cancelar</button><button class="btn primary" type="submit">Guardar</button></div>
   </form>`);
@@ -819,6 +820,15 @@ async function guardarMov(){
   if(!(imp>0)) return fErr('Escribe un importe mayor que cero.');
   if((F.tipo==='gasto'||F.tipo==='ingreso') && !F.categoria_id) return fErr('Elige una categoría.');
   if((F.tipo==='ahorro'||F.tipo==='inversion') && !F.posicion_id) return fErr('Elige dónde va el dinero.');
+  if((F.tipo==='ahorro'||F.tipo==='inversion') && !F.forzar && F.fecha.slice(0,7)===mes){
+    const previo = F.id ? (D.movimientos.find(m=>m.id===F.id)||{}) : {};
+    const disp = calc().porAsignar + ((previo.tipo==='ahorro'||previo.tipo==='inversion') ? +previo.importe : 0);
+    if(imp > Math.max(0,disp)+0.005){
+      F.aviso = disp>0 ? `Este mes solo quedan <b>${eur(disp)}</b> por repartir y vas a mover <b>${eur(imp)}</b>. Si el dinero sale de ahorros de otros meses, puedes guardarlo igualmente.`
+                       : `Este mes no queda nada por repartir (ingresos menos gastos). Si el dinero sale de ahorros de otros meses, puedes guardarlo igualmente.`;
+      return sheetMov();
+    }
+  }
   const cat = D.catById[F.categoria_id];
   const fila = {tipo:F.tipo, importe:Math.round(imp*100)/100, fecha:F.fecha, nota:F.nota.trim()||null, quien:(F.quien||'').trim()||null,
     categoria_id:(F.tipo==='gasto'||F.tipo==='ingreso')?F.categoria_id:null,

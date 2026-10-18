@@ -322,6 +322,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
+const VERSION = '2026-10-18-23';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -991,6 +992,20 @@ $('#loginForm').onsubmit = async ev=>{
 if(location.hash==='#apuntar') history.replaceState(null,'',location.pathname);
 if(TOKEN){ showApp(); if(location.hash==='#apuntar'){} } else logout();
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && TOKEN && D) load() });
+/* ---------- actualización automática ---------- */
+async function buscarVersion(){
+  try{
+    const r = await fetch(location.pathname+'?v='+Date.now(), {cache:'no-store'});
+    const t = await r.text(); const m = t.match(/const VERSION = '([^']+)'/);
+    if(m && m[1]!==VERSION){
+      if(dlg.open) return;               // no recargar si hay un formulario abierto
+      toast('Actualizando a la nueva versión…'); setTimeout(()=>location.reload(), 600);
+    }
+  }catch(e){}
+}
+buscarVersion();
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) buscarVersion() });
+
 </script>
 </body>
 </html>

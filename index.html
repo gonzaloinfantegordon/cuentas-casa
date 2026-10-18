@@ -120,7 +120,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent
 .cat .track i{position:absolute;inset:0 auto 0 0;border-radius:7px;background:var(--gasto)}
 .cat .track i.fijo{background:var(--muted)}
 .cat .track i.over{background:var(--warn)}
-.cat .lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat .lbl{min-width:0;overflow-wrap:anywhere}
 
 /* Progreso colchón */
 .meter{height:10px;background:var(--sunk);border-radius:10px;overflow:hidden;margin:10px 0 6px}
@@ -157,7 +157,8 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent
 .item:hover{background:var(--sunk)}
 .ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--sunk);font-size:1.05rem}
 .item .t{min-width:0}
-.item .t div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .t div{overflow-wrap:anywhere}
+.item .t small{display:block;overflow-wrap:anywhere}
 .item .t small{color:var(--muted)}
 .amt{font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
 .amt.gasto{color:var(--ink)} .amt.ingreso{color:var(--accent)} .amt.ahorro{color:var(--ahorro)} .amt.inversion{color:var(--inv)}
@@ -245,13 +246,14 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 .kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media(min-width:860px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;min-width:0;display:flex;flex-direction:column;gap:2px}
-.kpi b{font-family:var(--f-num);font-weight:500;font-size:1.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi b{font-family:var(--f-num);font-weight:500;font-size:clamp(1.05rem,4.6vw,1.2rem);white-space:nowrap}
+.kpi b.txt{font-family:var(--f-display);font-weight:700;white-space:normal;overflow-wrap:anywhere}
 .kpi small{color:var(--muted)}
 .heat{border-collapse:separate;border-spacing:3px;width:100%;font-size:.84rem}
 .heat th{font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:2px 4px;text-align:right;white-space:nowrap}
 .heat th:first-child{text-align:left}
 .heat td{padding:6px 6px;border-radius:6px;text-align:right;white-space:nowrap;font-family:var(--f-num);font-variant-numeric:tabular-nums}
-.heat td.c{font-family:var(--f-body);text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.heat td.c{font-family:var(--f-body);text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;min-width:120px;max-width:150px;white-space:normal;overflow-wrap:anywhere}
 .heat td.top{font-weight:600;outline:1.5px solid var(--gasto);outline-offset:-1.5px}
 .heat td.avg{color:var(--muted)}
 .heat tr.click{cursor:pointer}
@@ -259,7 +261,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 .delta{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 12px;align-items:baseline}
 .delta .up{color:var(--gasto)} .delta .down{color:var(--accent)}
 .delta>span{padding:7px 0;border-bottom:1px dashed var(--line)}
-.delta>span.l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.delta>span.l{min-width:0;overflow-wrap:anywhere}
 
 .search{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
 .search .grow{grid-column:1/-1}
@@ -578,11 +580,13 @@ function vStats(){
   const barato=conDatos.reduce((a,m)=>M[m].total<M[a].total?m:a,conDatos[0]);
   const prev=conDatos.filter(m=>m<mes); const mediaPrev=prev.length?prev.reduce((a,m)=>a+M[m].total,0)/prev.length:0;
   const dAct = mediaPrev? (M[mes].total-mediaPrev)/mediaPrev : null;
+  const mesN = m => cap(new Date(+m.slice(0,4), +m.slice(5,7)-1, 1).toLocaleDateString('es-ES',{month:'long'}));
+  const uno = conDatos.length<2;
   const kpis=`<div class="kpis" style="margin-top:14px">
     <div class="kpi"><small>Gasto medio al mes</small><b>${eur(media,false)}</b><small>${conDatos.length} mes${conDatos.length>1?'es':''} con datos</small></div>
-    <div class="kpi"><small>Mes con más gasto</small><b>${esc(cap(fmtMes(caro)))}</b><small>${eur(M[caro].total,false)}</small></div>
-    <div class="kpi"><small>Mes con menos gasto</small><b>${esc(cap(fmtMes(barato)))}</b><small>${eur(M[barato].total,false)}</small></div>
-    <div class="kpi"><small>${esc(cap(fmtMes(mes)))} frente a la media</small><b class="${dAct==null?'':dAct>0?'neg':'pos'}">${dAct==null?'—':(dAct>0?'+':'')+pct(dAct)}</b><small>${dAct==null?'sin meses anteriores':eur(M[mes].total,false)+' vs '+eur(mediaPrev,false)}</small></div>
+    <div class="kpi"><small>Mes con más gasto</small><b class="txt">${uno?'—':esc(mesN(caro))}</b><small>${uno?'hace falta más de un mes':caro.slice(0,4)+' · '+eur(M[caro].total,false)}</small></div>
+    <div class="kpi"><small>Mes con menos gasto</small><b class="txt">${uno?'—':esc(mesN(barato))}</b><small>${uno?'hace falta más de un mes':barato.slice(0,4)+' · '+eur(M[barato].total,false)}</small></div>
+    <div class="kpi"><small>${esc(mesN(mes))} frente a la media</small><b class="${dAct==null?'':dAct>0?'neg':'pos'}">${dAct==null?'—':(dAct>0?'+':'')+pct(dAct)}</b><small>${dAct==null?'sin meses anteriores':eur(M[mes].total,false)+' vs '+eur(mediaPrev,false)}</small></div>
   </div>`;
 
   // gráfico apilado

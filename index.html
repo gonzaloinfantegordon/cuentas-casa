@@ -152,7 +152,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;cursor:pointer;font-size:.86rem}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .list{display:flex;flex-direction:column}
-.day{font-size:.78rem;color:var(--muted);font-weight:600;padding:14px 0 4px;text-transform:capitalize}
+.day{font-size:.78rem;color:var(--muted);font-weight:600;padding:14px 0 4px}
 .item{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;padding:9px 6px;border-radius:10px;cursor:pointer;border:0;background:none;text-align:left;width:100%}
 .item:hover{background:var(--sunk)}
 .ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--sunk);font-size:1.05rem}
@@ -266,6 +266,17 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 @media(min-width:620px){.search{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr)}.search .grow{grid-column:auto}}
 .sres{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;background:var(--sunk);border-radius:10px}
 .month-h{text-transform:none;display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+
+/* Controles iguales en todos los navegadores (Safari pinta los select a su manera) */
+.field select{-webkit-appearance:none;appearance:none;height:46px;padding-right:36px;line-height:1.2;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 19px) 52%,calc(100% - 14px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;cursor:pointer}
+.field input{height:46px}
+.field input[type=search]{-webkit-appearance:none;appearance:none}
+.field input[type=search]::-webkit-search-decoration{-webkit-appearance:none}
+.field input.amount{height:auto}
+.field input[type=checkbox],.check input{height:auto;width:auto}
+.field select:focus-visible,.field input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .loading{opacity:.55;transition:opacity .2s}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -655,7 +666,7 @@ function listaAgrupada(M, porMes){
     if(k!==last){ last=k;
       if(porMes){ const sub=M.filter(x=>x.fecha.startsWith(k)); const g=sub.filter(x=>x.tipo==='gasto').reduce((a,x)=>a+ +x.importe,0);
         html+=`<div class="day month-h"><span>${esc(cap(fmtMes(k)))}</span><span class="num">${sub.length} · ${g?eur(g):''}</span></div>` }
-      else { const d=new Date(m.fecha+'T12:00'); html+=`<div class="day">${d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</div>` }
+      else { const d=new Date(m.fecha+'T12:00'); html+=`<div class="day">${cap(d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))}</div>` }
     }
     html += itemHtml(m);
   });

@@ -260,6 +260,12 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 .delta .up{color:var(--gasto)} .delta .down{color:var(--accent)}
 .delta>span{padding:7px 0;border-bottom:1px dashed var(--line)}
 .delta>span.l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.search{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.search .grow{grid-column:1/-1}
+@media(min-width:620px){.search{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr)}.search .grow{grid-column:auto}}
+.sres{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;background:var(--sunk);border-radius:10px}
+.month-h{text-transform:none;display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding-bottom:6px}
 .loading{opacity:.55;transition:opacity .2s}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -351,7 +357,7 @@ async function load(){
     D = await rpc('datos',{p_desde:desde,p_hasta:hasta});
     D.catById = Object.fromEntries(D.categorias.map(c=>[c.id,c]));
     D.posById = Object.fromEntries(D.posiciones.map(p=>[p.id,p]));
-    S = null;
+    S = null; Q.key='';
     render();
   }catch(e){
     if(e.code==='28000'){ logout('El código de acceso no es correcto.'); return }
@@ -412,7 +418,7 @@ function render(){
   const v = $('#view');
   if(!D) return;
   if(tab==='resumen') v.innerHTML = vResumen();
-  if(tab==='movs') v.innerHTML = vMovs();
+  if(tab==='movs'){ v.innerHTML = vMovs(); movsBind(); movsRefresh() }
   if(tab==='fijos') v.innerHTML = vFijos();
   if(tab==='patri') v.innerHTML = vPatri();
   if(tab==='ajustes') v.innerHTML = vAjustes();
@@ -621,20 +627,71 @@ function vStats(){
   return head+kpis+`<div class="grid two">${'<div class="stack">'+chart+heat+'</div>'}${'<div class="stack">'+detalle+cambios+fv+per+'</div>'}</div>`;
 }
 
+let Q = {cat:'', texto:'', periodo:'mes', res:null, key:''};
+function movsActivo(){ return !!(Q.cat || Q.texto.trim() || Q.periodo!=='mes') }
 function vMovs(){
   const tipos = [['todos','Todos'],['gasto','Gastos'],['ingreso','Ingresos'],['ahorro','Ahorro'],['inversion','Inversión']];
-  const M = D.movimientos.filter(m=>movFilter==='todos'||m.tipo===movFilter);
-  let html='', lastDay='';
+  const opt = t => D.categorias.filter(c=>c.tipo===t).map(c=>`<option value="${c.id}" ${Q.cat===c.id?'selected':''}>${esc(c.icono)} ${esc(c.nombre)}${c.activa?'':' (inactiva)'}</option>`).join('');
+  return `<section class="panel" style="margin-top:16px">
+    <div class="search">
+      <div class="field grow"><label for="qTexto">Buscar</label><input id="qTexto" type="search" placeholder="coche, Mercadona, regalo…" value="${esc(Q.texto)}" autocomplete="off"></div>
+      <div class="field"><label for="qCat">Categoría</label><select id="qCat"><option value="">Todas</option><optgroup label="Gastos">${opt('gasto')}</optgroup><optgroup label="Ingresos">${opt('ingreso')}</optgroup></select></div>
+      <div class="field"><label for="qPer">Periodo</label><select id="qPer">${[['mes',cap(fmtMes(mes))],['3','Últimos 3 meses'],['6','Últimos 6 meses'],['12','Últimos 12 meses'],['todo','Desde el principio']].map(([k,l])=>`<option value="${k}" ${Q.periodo===k?'selected':''}>${esc(l)}</option>`).join('')}</select></div>
+    </div>
+    <div class="filters" style="margin:12px 0 4px">${tipos.map(([k,l])=>`<button class="chip" aria-pressed="${movFilter===k}" onclick="movFilter='${k}';Q.key='';movsRefresh();this.parentNode.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c===this))">${l}</button>`).join('')}</div>
+    <div id="movRes"></div>
+  </section>`;
+}
+function movsBind(){
+  const t=$('#qTexto'), c=$('#qCat'), p=$('#qPer'); if(!t) return;
+  let tm; t.oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>{ Q.texto=t.value; movsRefresh() },350) };
+  c.onchange=()=>{ Q.cat=c.value; movsRefresh() };
+  p.onchange=()=>{ Q.periodo=p.value; movsRefresh() };
+}
+function listaAgrupada(M, porMes){
+  let html='', last='';
   M.forEach(m=>{
-    if(m.fecha!==lastDay){ lastDay=m.fecha; const d=new Date(m.fecha+'T12:00'); html+=`<div class="day">${d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</div>` }
+    const k = porMes ? m.fecha.slice(0,7) : m.fecha;
+    if(k!==last){ last=k;
+      if(porMes){ const sub=M.filter(x=>x.fecha.startsWith(k)); const g=sub.filter(x=>x.tipo==='gasto').reduce((a,x)=>a+ +x.importe,0);
+        html+=`<div class="day month-h"><span>${esc(cap(fmtMes(k)))}</span><span class="num">${sub.length} · ${g?eur(g):''}</span></div>` }
+      else { const d=new Date(m.fecha+'T12:00'); html+=`<div class="day">${d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</div>` }
+    }
     html += itemHtml(m);
   });
-  const tot = M.reduce((a,m)=>a+ +m.importe,0);
-  return `<section class="panel" style="margin-top:16px">
-    <header><div class="filters">${tipos.map(([k,l])=>`<button class="chip" aria-pressed="${movFilter===k}" onclick="movFilter='${k}';render()">${l}</button>`).join('')}</div>
-    <span class="muted"><small>${M.length} movimiento${M.length===1?'':'s'}${movFilter!=='todos'?' · '+eur(tot):''}</small></span></header>
-    <div class="list">${html || '<div class="empty">No hay movimientos en '+esc(fmtMes(mes))+'.</div>'}</div>
-  </section>`;
+  return html;
+}
+async function movsRefresh(){
+  const box=$('#movRes'); if(!box) return;
+  const filtroTipo = m => movFilter==='todos' || m.tipo===movFilter;
+  if(!movsActivo()){
+    const M=D.movimientos.filter(filtroTipo); const tot=M.reduce((a,m)=>a+ +m.importe,0);
+    box.innerHTML = `<p class="muted" style="margin:6px 0"><small>${M.length} movimiento${M.length===1?'':'s'} en ${esc(fmtMes(mes))}${movFilter!=='todos'?' · '+eur(tot):''}</small></p>
+      <div class="list">${listaAgrupada(M,false) || '<div class="empty">No hay movimientos en '+esc(fmtMes(mes))+'.</div>'}</div>`;
+    return;
+  }
+  const [ini,fin]=ymRange(mes);
+  const desde = Q.periodo==='mes' ? ini : Q.periodo==='todo' ? null : ymAdd(ymNow(),-(+Q.periodo-1))+'-01';
+  const key = [Q.cat,Q.texto.trim(),Q.periodo,mes,movFilter].join('|');
+  if(Q.key!==key){
+    box.innerHTML='<p class="muted"><small>Buscando…</small></p>';
+    try{ Q.res = await rpc('buscar',{p_categoria:Q.cat||null,p_texto:Q.texto.trim()||null,p_desde:desde,p_tipo:movFilter==='todos'?null:movFilter}); Q.key=key }
+    catch(e){ box.innerHTML=`<p class="err">${esc(e.message)}</p>`; return }
+  }
+  let M = Q.res; if(Q.periodo==='mes') M=M.filter(m=>m.fecha<=fin);
+  const gastos=M.filter(m=>m.tipo==='gasto'), ingresos=M.filter(m=>m.tipo==='ingreso');
+  const tg=gastos.reduce((a,m)=>a+ +m.importe,0), ti=ingresos.reduce((a,m)=>a+ +m.importe,0);
+  const meses=new Set(M.map(m=>m.fecha.slice(0,7))).size;
+  const nMeses = Q.periodo==='mes'?1 : Q.periodo==='todo'? Math.max(1,meses) : +Q.periodo;
+  const cat=D.catById[Q.cat];
+  const titulo=[cat?esc(cat.icono)+' '+esc(cat.nombre):'', Q.texto.trim()?'«'+esc(Q.texto.trim())+'»':''].filter(Boolean).join(' · ')||'Todos los movimientos';
+  box.innerHTML = `<div class="sres"><div><b>${titulo}</b><br><small class="muted">${M.length} movimiento${M.length===1?'':'s'}${M.length>=1000?' (se muestran los 1000 más recientes)':''}</small></div>
+      <button class="btn small" onclick="Q={cat:'',texto:'',periodo:'mes',res:null,key:''};render()">Limpiar</button></div>
+    ${M.length?`<div class="ledger" style="margin:6px 0 4px">
+      ${tg?`<div class="row"><span>Total gastado</span><span class="num">${eur(tg)}</span></div><div class="row"><span>Media al mes${Q.periodo==='todo'?' (meses con gasto)':''}</span><span class="num">${eur(tg/nMeses)}</span></div>`:''}
+      ${ti?`<div class="row"><span>Total ingresado</span><span class="num">${eur(ti)}</span></div>`:''}
+    </div>`:''}
+    <div class="list">${listaAgrupada(M, Q.periodo!=='mes') || '<div class="empty">No hay movimientos que coincidan. Prueba con otra palabra o un periodo más largo.</div>'}</div>`;
 }
 function itemHtml(m){
   const c = D.catById[m.categoria_id]; const p = D.posById[m.posicion_id];
@@ -738,23 +795,6 @@ function vAjustes(){
           <div class="actions"><button class="btn danger left" type="button" onclick="logout()">Cerrar sesión</button><button class="btn" type="submit">Guardar</button></div>
         </form>
       </section>
-      <section class="panel">
-        <header><h2>Atajo del iPhone</h2><small class="muted">iOS 18 o posterior</small></header>
-        <ol style="margin:0 0 14px;padding-left:20px;display:flex;flex-direction:column;gap:6px">
-          <li>En <b>Atajos</b>, crea uno nuevo llamado <b>Apuntar gasto</b>.</li>
-          <li><b>Pedir entrada</b> · tipo Número · «¿Cuánto?».</li>
-          <li><b>Lista</b> con las categorías de abajo, y después <b>Elegir de la lista</b>.</li>
-          <li>Opcional: <b>Pedir entrada</b> · tipo Texto · «Nota».</li>
-          <li><b>Obtener contenido de URL</b> con la URL de abajo. Método <b>POST</b>. Cabeceras: <code>apikey</code> y <code>Content-Type</code> = <code>application/json</code>. Cuerpo <b>JSON</b> con: <code>p_token</code> (vuestro código), <code>p_importe</code> (la cantidad), <code>p_categoria</code> (el elemento elegido), <code>p_nota</code> y <code>p_quien</code> (tu nombre). Todos como Texto.</li>
-          <li><b>Mostrar notificación</b> con el «Contenido de la URL»: verás «✅ 12,50 € en Supermercado · este mes: …».</li>
-          <li>Abre el Centro de control, pulsa <b>+</b> arriba a la izquierda, <b>Añadir un control</b> › <b>Atajos</b> y elige «Apuntar gasto».</li>
-        </ol>
-        <div class="form">
-          <div class="field"><label>URL</label><div class="code"><span>${API}apuntar</span><button class="btn small" type="button" onclick="copiar('${API}apuntar')">Copiar</button></div></div>
-          <div class="field"><label>Cabecera apikey</label><div class="code"><span>${KEY}</span><button class="btn small" type="button" onclick="copiar('${KEY}')">Copiar</button></div></div>
-          <div class="field"><label>Categorías de gasto (para la lista del atajo)</label><div class="code"><span style="white-space:pre-line">${esc(nombresGasto)}</span><button class="btn small" type="button" onclick="copiar(${esc(JSON.stringify(nombresGasto))})">Copiar</button></div></div>
-        </div>
-      </section>
     </div>
     <section class="panel">
       <header><h2>Categorías</h2><button class="btn small primary" onclick="editCat(null)">Añadir</button></header>
@@ -780,7 +820,7 @@ function nuevo(tipo='gasto',importe){
   sheetMov();
 }
 function editar(id){
-  const m = D.movimientos.find(x=>x.id===id); if(!m) return;
+  const m = D.movimientos.find(x=>x.id===id) || (Q.res||[]).find(x=>x.id===id); if(!m) return;
   F = {...m, importe:nf.format(m.importe).replace(/\./g,''), confirm:false, aviso:null, forzar:false};
   sheetMov();
 }

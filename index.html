@@ -736,7 +736,7 @@ function vFijos(){
 }
 function periodoTxt(x){ return {1:'mes',2:'2 meses',3:'trimestre',4:'4 meses',6:'semestre',12:'año'}[x.cada_meses] + (x.cada_meses>1?` <small class="muted">desde ${new Date(2000,x.mes_inicio-1,1).toLocaleDateString('es-ES',{month:'short'})}</small>`:'') }
 
-const TIPOS_POS = {liquidez:'Liquidez y colchón',fondo:'Fondos',proyecto:'Proyectos',inmobiliario:'Inmobiliario',otro:'Otros'};
+const TIPOS_POS = {liquidez:'Liquidez y colchón',fondo:'Fondos',acciones:'Acciones',cripto:'Criptomonedas',proyecto:'Proyectos',inmobiliario:'Inmobiliario',otro:'Otros'};
 function vPatri(){
   const P = D.posiciones.filter(p=>p.activa);
   const total = P.reduce((a,p)=>a+ +p.valor_actual,0);
@@ -752,7 +752,7 @@ function vPatri(){
       return `<tr class="click" onclick="editPos('${p.id}')"><td>${esc(p.nombre)}<br><small class="muted">valor a ${new Date(p.fecha_valor+'T12:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</small></td><td class="r num hide-sm">${eur(p.aportado)}</td><td class="r num">${eur(p.valor_actual)}</td><td class="r num ${t==='liquidez'?'':g>=0?'pos':'neg'}">${t==='liquidez'?'—':sgn(g)+'<br><small>'+pct(gp)+'</small>'}</td></tr>`}).join('');
   }).join('');
   const share = total>0 ? Object.keys(TIPOS_POS).map(t=>[t,P.filter(p=>p.tipo===t).reduce((a,p)=>a+ +p.valor_actual,0)]).filter(x=>x[1]>0) : [];
-  const colors = {liquidez:'var(--ahorro)',fondo:'var(--inv)',proyecto:'var(--accent)',inmobiliario:'var(--warn)',otro:'var(--muted)'};
+  const colors = {liquidez:'var(--ahorro)',fondo:'var(--inv)',acciones:'var(--c2)',cripto:'var(--c6)',proyecto:'var(--accent)',inmobiliario:'var(--warn)',otro:'var(--muted)'};
   return `<div class="grid two">
     <section class="panel">
       <header><h2>Posiciones</h2><button class="btn small primary" onclick="editPos(null)">Añadir</button></header>
@@ -929,7 +929,7 @@ function editPos(id,tipoDef='fondo'){
   const p = id ? D.posById[id] : {nombre:'',tipo:tipoDef,aportado:'',valor_actual:'',notas:'',activa:true,fecha_valor:todayISO()};
   openSheet(`<h3>${id?esc(p.nombre):'Nueva posición'}</h3>
   <form class="form" onsubmit="event.preventDefault();guardarPos('${id||''}')">
-    <div class="field"><label for="pN">Nombre</label><input id="pN" value="${esc(p.nombre)}" placeholder="Indexa, fondo MSCI World, cuenta remunerada…" required ${id?'':'autofocus'}></div>
+    <div class="field"><label for="pN">Nombre</label><input id="pN" value="${esc(p.nombre)}" placeholder="Indexa, MSCI World, Apple, Bitcoin, cuenta remunerada…" required ${id?'':'autofocus'}></div>
     <div class="field"><label for="pT">Tipo</label><select id="pT">${Object.entries(TIPOS_POS).map(([k,l])=>`<option value="${k}" ${p.tipo===k?'selected':''}>${l}</option>`).join('')}</select></div>
     <div class="row2"><div class="field"><label for="pA">Aportado (€)</label><input id="pA" inputmode="decimal" value="${p.aportado===''?'':nf.format(p.aportado).replace(/\./g,'')}" placeholder="0,00"></div>
     <div class="field"><label for="pV">Valor actual (€)</label><input id="pV" inputmode="decimal" value="${p.valor_actual===''?'':nf.format(p.valor_actual).replace(/\./g,'')}" placeholder="0,00"></div></div>

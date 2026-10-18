@@ -322,7 +322,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-10-18-23';
+const VERSION = '2026-10-18-24';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -999,7 +999,11 @@ async function buscarVersion(){
     const t = await r.text(); const m = t.match(/const VERSION = '([^']+)'/);
     if(m && m[1]!==VERSION){
       if(dlg.open) return;               // no recargar si hay un formulario abierto
-      toast('Actualizando a la nueva versión…'); setTimeout(()=>location.reload(), 600);
+      let ya=null; try{ ya=sessionStorage.getItem('cc_upd') }catch(e){}
+      if(ya===m[1]) return;              // ya lo intentamos con esta versión: no insistir
+      try{ sessionStorage.setItem('cc_upd', m[1]) }catch(e){}
+      toast('Actualizando a la nueva versión…');
+      setTimeout(()=>location.replace(location.pathname+'?v='+encodeURIComponent(m[1])), 600);   // la URL nueva salta el caché
     }
   }catch(e){}
 }

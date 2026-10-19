@@ -324,7 +324,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-10-19-1';
+const VERSION = '2026-10-19-2';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -375,6 +375,7 @@ async function load(){
     D.posById = Object.fromEntries(D.posiciones.map(p=>[p.id,p]));
     S = null; Q.key='';
     render();
+    if(abrirApuntar){ abrirApuntar=false; nuevo('gasto') }
   }catch(e){
     if(e.code==='28000'){ logout('El código de acceso no es correcto.'); return }
     $('#view').innerHTML = `<div class="panel" style="margin-top:16px"><h2>No se han podido cargar los datos</h2><p class="muted">${esc(e.message)}. Comprueba la conexión y vuelve a intentarlo.</p><button class="btn" onclick="load()">Reintentar</button></div>`;
@@ -997,8 +998,10 @@ $('#loginForm').onsubmit = async ev=>{
   try{ await rpc('categorias_lista',{p_tipo:'gasto'}); store.set('token',TOKEN); store.set('who',WHO); showApp() }
   catch(e){ logout(e.code==='28000'?'Ese código no es correcto.':'No se ha podido conectar: '+e.message) }
 };
-if(location.hash==='#apuntar') history.replaceState(null,'',location.pathname);
-if(TOKEN){ showApp(); if(location.hash==='#apuntar'){} } else logout();
+let abrirApuntar = location.hash==='#apuntar';
+if(abrirApuntar) history.replaceState(null,'',location.pathname);
+if(TOKEN){ showApp() } else logout();
+window.addEventListener('hashchange',()=>{ if(location.hash!=='#apuntar') return; history.replaceState(null,'',location.pathname); if(D && TOKEN) nuevo('gasto'); else abrirApuntar=true });
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && TOKEN && D) load() });
 /* ---------- actualización automática ---------- */
 async function buscarVersion(){

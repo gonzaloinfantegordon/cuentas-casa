@@ -324,7 +324,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-10-22-1';
+const VERSION = '2026-10-22-2';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -409,6 +409,7 @@ function calc(){
   const planVar = presVar || mediaVar;
   const planVarFuente = presVar ? 'presupuestos' : (hist.length ? `media de ${hist.length} mes${hist.length>1?'es':''}` : 'sin datos aún');
   const capacidad = planIng-planFijos-planVar;
+  const planAport = fAct.filter(f=>(f.tipo==='ahorro'||f.tipo==='inversion') && D.posById[f.posicion_id]?.activa).reduce((a,f)=>a+f.importe/f.cada_meses,0);
 
   // colchón
   const gastoMensual = planFijos + (planVar || gVar);
@@ -417,7 +418,7 @@ function calc(){
 
   // fijos pendientes de registrar este mes
   const hechos = new Set(M.filter(m=>m.fijo_id && m.periodo===mes).map(m=>m.fijo_id));
-  const pendientes = fAct.filter(f=>f.importe>0 && fijoAplica(f,mes) && !hechos.has(f.id));
+  const pendientes = fAct.filter(f=>f.importe>0 && fijoAplica(f,mes) && !hechos.has(f.id) && (f.tipo==='gasto'||f.tipo==='ingreso'||D.posById[f.posicion_id]?.activa));
 
   // por categoría
   const porCat = {};
@@ -425,7 +426,7 @@ function calc(){
 
   return {ingresos,gFijos,gVar,gastos,ahorro,inversion,retirada,sobrante,porAsignar,pA,
     sugAhorro: Math.max(0,porAsignar)*pA, sugInv: Math.max(0,porAsignar)*(1-pA),
-    planIng,planFijos,planVar,planVarFuente,capacidad,gastoMensual,objetivo,liquidez,pendientes,porCat};
+    planIng,planFijos,planVar,planVarFuente,capacidad,planAport,gastoMensual,objetivo,liquidez,pendientes,porCat};
 }
 
 /* ---------- render ---------- */
@@ -467,7 +468,7 @@ function vResumen(){
       <div class="bar-split" aria-hidden="true"><i style="width:${pAh}%;background:var(--accent-ink);opacity:.85"></i><i style="width:${100-pAh}%;background:var(--accent-ink);opacity:.35"></i></div>`;
   }
 
-  const pend = c.pendientes.length ? `<div class="notice"><span><b>${c.pendientes.length} fijo${c.pendientes.length>1?'s':''}</b> de ${esc(fmtMes(mes))} sin registrar (${[['gasto','en gastos'],['ingreso','en ingresos']].map(([t,l])=>{const v=c.pendientes.filter(f=>f.tipo===t).reduce((a,f)=>a+ +f.importe,0);return v?eur(v)+' '+l:''}).filter(Boolean).join(' y ')}).</span><button class="btn small" onclick="registrarFijos()">Registrar ahora</button></div>` : '';
+  const pend = c.pendientes.length ? `<div class="notice"><span><b>${c.pendientes.length} fijo${c.pendientes.length>1?'s':''}</b> de ${esc(fmtMes(mes))} sin registrar (${[['gasto','en gastos'],['ingreso','en ingresos'],['ahorro','a ahorro'],['inversion','a inversión']].map(([t,l])=>{const v=c.pendientes.filter(f=>f.tipo===t).reduce((a,f)=>a+ +f.importe,0);return v?eur(v)+' '+l:''}).filter(Boolean).join(' y ')}).</span><button class="btn small" onclick="registrarFijos()">Registrar ahora</button></div>` : '';
 
   // categorías
   const cats = Object.entries(c.porCat).map(([id,v])=>({c:D.catById[id]||{nombre:'Sin categoría',icono:'•',naturaleza:'variable'},v})).sort((a,b)=>b.v-a.v);
@@ -513,6 +514,7 @@ function vResumen(){
           <div class="row"><span>Gastos fijos</span><span class="num">${c.planFijos?"−":""}${eur(c.planFijos)}</span></div>
           <div class="row"><span>Variables <small class="muted">(${esc(c.planVarFuente)})</small></span><span class="num">${c.planVar?"−":""}${eur(c.planVar)}</span></div>
           <div class="row total"><span>Capacidad de ahorro e inversión</span><span class="num ${c.capacidad>=0?'pos':'neg'}">${sgn(c.capacidad)}</span></div>
+          ${c.planAport?`<div class="row"><span>Aportaciones automáticas</span><span class="num">−${eur(c.planAport)}</span></div><div class="row total"><span>Libre después de aportar</span><span class="num ${c.capacidad-c.planAport>=0?'pos':'neg'}">${sgn(c.capacidad-c.planAport)}</span></div>`:''}
         </div>
         ${c.capacidad>0?`<p class="muted" style="margin:10px 0 0"><small>Al mes, unos ${eur(c.capacidad*c.pA,false)} a ahorro y ${eur(c.capacidad*(1-c.pA),false)} a inversión · ${eur(c.capacidad*12,false)} al año.</small></p>`:''}
         ${D.fijos.length===0?`<p style="margin:10px 0 0"><button class="btn small" onclick="setTab('fijos')">Añadir ingresos y gastos fijos</button></p>`:''}
@@ -726,11 +728,11 @@ function itemHtml(m){
 function vFijos(){
   const f = D.fijos;
   const tabla = (tipo)=>{
-    const rows = f.filter(x=>x.tipo===tipo);
-    if(!rows.length) return `<div class="empty">Ningún ${tipo} fijo todavía.</div>`;
+    const rows = f.filter(x=>tipo==='aport' ? (x.tipo==='ahorro'||x.tipo==='inversion') : x.tipo===tipo);
+    if(!rows.length) return `<div class="empty">${tipo==='aport'?'Ninguna aportación automática todavía.':'Ningún '+tipo+' fijo todavía.'}</div>`;
     const tot = rows.filter(x=>x.activo).reduce((a,x)=>a+x.importe/x.cada_meses,0);
     return `<div class="scroll"><table class="tbl"><thead><tr><th>Concepto</th><th>Cada</th><th class="r">Importe</th><th class="r">Al mes</th></tr></thead><tbody>
-      ${rows.map(x=>{const c=D.catById[x.categoria_id]; return `<tr class="click ${x.activo?'':'off'}" onclick="editFijo('${x.id}')"><td>${c?esc(c.icono)+' ':''}${esc(x.nombre)}<br><small class="muted">día ${x.dia}${c?' · '+esc(c.nombre):''}${x.activo?'':' · pausado'}</small></td><td>${periodoTxt(x)}</td><td class="r num">${eur(x.importe)}</td><td class="r num">${eur(x.importe/x.cada_meses)}</td></tr>`}).join('')}
+      ${rows.map(x=>{const c=D.catById[x.categoria_id]; const ps=D.posById[x.posicion_id]; return `<tr class="click ${x.activo?'':'off'}" onclick="editFijo('${x.id}')"><td>${c?esc(c.icono)+' ':''}${ps?(x.tipo==='ahorro'?'🐷 ':'📈 '):''}${esc(x.nombre)}<br><small class="muted">día ${x.dia}${c?' · '+esc(c.nombre):''}${ps?' · → '+esc(ps.nombre)+(ps.activa?'':' (archivada)'):''}${x.activo?'':' · pausado'}</small></td><td>${periodoTxt(x)}</td><td class="r num">${eur(x.importe)}</td><td class="r num">${eur(x.importe/x.cada_meses)}</td></tr>`}).join('')}
       <tr><td colspan="3"><b>Total al mes</b></td><td class="r num"><b>${eur(tot)}</b></td></tr></tbody></table></div>`;
   };
   return `<div class="grid two">
@@ -738,6 +740,8 @@ function vFijos(){
       <p class="muted"><small>Alquiler o hipoteca, luz, seguros, suscripciones… Los trimestrales y anuales cuentan en la previsión como su parte proporcional al mes.</small></p></section>
     <section class="panel"><header><h2>Ingresos fijos</h2><button class="btn small primary" onclick="editFijo(null,'ingreso')">Añadir ingreso fijo</button></header>${tabla('ingreso')}
       <p class="muted"><small>Cada mes podéis registrar todos los fijos de golpe desde el aviso del Resumen. Si un mes cambia el importe (la luz, por ejemplo), editad ese movimiento.</small></p></section>
+    <section class="panel"><header><h2>Aportaciones automáticas</h2><button class="btn small primary" onclick="editFijo(null,'inversion')">Añadir aportación</button></header>${tabla('aport')}
+      <p class="muted"><small>Lo que metéis cada mes en un fondo, en acciones o en la cuenta de ahorro. Se registran con el resto de fijos y suben solas la posición en Patrimonio.</small></p></section>
   </div>`;
 }
 function periodoTxt(x){ return {1:'mes',2:'2 meses',3:'trimestre',4:'4 meses',6:'semestre',12:'año'}[x.cada_meses] + (x.cada_meses>1?` <small class="muted">desde ${new Date(2000,x.mes_inicio-1,1).toLocaleDateString('es-ES',{month:'short'})}</small>`:'') }
@@ -943,16 +947,20 @@ async function anular(){ try{ await rpc('anular',{p_id:F.id}); closeSheet(); toa
 
 /* fijos */
 function editFijo(id,tipo){
-  const x = id ? D.fijos.find(f=>f.id===id) : {nombre:'',tipo,importe:'',categoria_id:null,dia:1,cada_meses:1,mes_inicio:new Date().getMonth()+1,activo:true};
+  const x = id ? D.fijos.find(f=>f.id===id) : {nombre:'',tipo,importe:'',categoria_id:null,posicion_id:null,dia:1,cada_meses:1,mes_inicio:new Date().getMonth()+1,activo:true};
+  const aport = x.tipo==='ahorro'||x.tipo==='inversion';
+  const PS = D.posiciones.filter(p=>p.activa || p.id===x.posicion_id).sort((a,b)=>(a.tipo==='liquidez'?1:0)-(b.tipo==='liquidez'?1:0));
   const cats = D.categorias.filter(c=>c.activa && c.tipo===x.tipo);
-  openSheet(`<h3>${id?'Editar':'Nuevo'} ${x.tipo==='gasto'?'gasto':'ingreso'} fijo</h3>
-  <form class="form" onsubmit="event.preventDefault();guardarFijo('${id||''}','${x.tipo}')">
-    <div class="field"><label for="xN">Concepto</label><input id="xN" value="${esc(x.nombre)}" placeholder="${x.tipo==='gasto'?'Alquiler, Iberdrola, Netflix…':'Nómina de…'}" required ${id?'':'autofocus'}></div>
+  openSheet(`<h3>${id?'Editar':aport?'Nueva':'Nuevo'} ${aport?'aportación automática':x.tipo==='gasto'?'gasto fijo':'ingreso fijo'}</h3>
+  <form class="form" onsubmit="event.preventDefault();guardarFijo('${id||''}','${aport?'aport':x.tipo}')">
+    <div class="field"><label for="xN">Concepto</label><input id="xN" value="${esc(x.nombre)}" placeholder="${aport?'Aportación mensual al fondo…':x.tipo==='gasto'?'Alquiler, Iberdrola, Netflix…':'Nómina de…'}" required ${id?'':'autofocus'}></div>
     <div class="row2"><div class="field"><label for="xI">Importe (€)</label><input id="xI" inputmode="decimal" value="${x.importe===''?'':nf.format(x.importe).replace(/\./g,'')}" required></div>
     <div class="field"><label for="xD">Día del mes</label><input id="xD" type="number" min="1" max="31" value="${x.dia}" inputmode="numeric"></div></div>
-    <div class="field"><label for="xC">Categoría</label><select id="xC"><option value="">—</option>${cats.map(c=>`<option value="${c.id}" ${x.categoria_id===c.id?'selected':''}>${esc(c.icono)} ${esc(c.nombre)}</option>`).join('')}</select></div>
-    <div class="row2"><div class="field"><label for="xP">Se paga cada</label><select id="xP">${[[1,'mes'],[2,'2 meses'],[3,'trimestre'],[4,'4 meses'],[6,'semestre'],[12,'año']].map(([v,l])=>`<option value="${v}" ${x.cada_meses==v?'selected':''}>${l}</option>`).join('')}</select></div>
-    <div class="field"><label for="xM">Primer mes de pago</label><select id="xM">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${x.mes_inicio==i+1?'selected':''}>${new Date(2000,i,1).toLocaleDateString('es-ES',{month:'long'})}</option>`).join('')}</select></div></div>
+    ${aport ? (PS.length?`<div class="field"><label for="xPos">¿A dónde va?</label><select id="xPos">${PS.map(p=>`<option value="${p.id}" ${x.posicion_id===p.id?'selected':''}>${esc(p.nombre)} · ${esc(TIPOS_POS[p.tipo])}</option>`).join('')}</select></div>`
+      : `<p class="muted" style="margin:0">Primero crea el fondo o la cuenta en Patrimonio. <button type="button" class="btn small" onclick="closeSheet();setTab('patri');editPos(null,'fondo')">Crear</button></p>`)
+    : `<div class="field"><label for="xC">Categoría</label><select id="xC"><option value="">—</option>${cats.map(c=>`<option value="${c.id}" ${x.categoria_id===c.id?'selected':''}>${esc(c.icono)} ${esc(c.nombre)}</option>`).join('')}</select></div>`}
+    <div class="row2"><div class="field"><label for="xP">${aport?'Se aporta cada':'Se paga cada'}</label><select id="xP">${[[1,'mes'],[2,'2 meses'],[3,'trimestre'],[4,'4 meses'],[6,'semestre'],[12,'año']].map(([v,l])=>`<option value="${v}" ${x.cada_meses==v?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="field"><label for="xM">${aport?'Primer mes':'Primer mes de pago'}</label><select id="xM">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${x.mes_inicio==i+1?'selected':''}>${new Date(2000,i,1).toLocaleDateString('es-ES',{month:'long'})}</option>`).join('')}</select></div></div>
     <label class="check"><input type="checkbox" id="xA" ${x.activo?'checked':''}> Activo</label>
     <div id="fErr" class="err" hidden></div>
     <div class="actions"><button type="button" class="btn" onclick="closeSheet()">Cancelar</button><button class="btn primary" type="submit">Guardar</button></div>
@@ -960,7 +968,9 @@ function editFijo(id,tipo){
 }
 async function guardarFijo(id,tipo){
   const imp=parseNum(xI.value); if(!(imp>=0)) return fErr('Importe no válido.');
-  const fila={nombre:xN.value.trim(),tipo,importe:Math.round(imp*100)/100,dia:Math.min(31,Math.max(1,+xD.value||1)),categoria_id:xC.value||null,cada_meses:+xP.value,mes_inicio:+xM.value,activo:xA.checked};
+  let posId=null, t=tipo;
+  if(tipo==='aport'){ const sel=document.getElementById('xPos'); if(!sel||!sel.value) return fErr('Elige a qué fondo o cuenta va.'); posId=sel.value; t = D.posById[posId].tipo==='liquidez'?'ahorro':'inversion' }
+  const fila={nombre:xN.value.trim(),tipo:t,importe:Math.round(imp*100)/100,dia:Math.min(31,Math.max(1,+xD.value||1)),categoria_id:tipo==='aport'?null:(document.getElementById('xC')?.value||null),posicion_id:posId,cada_meses:+xP.value,mes_inicio:+xM.value,activo:xA.checked};
   if(id) fila.id=id;
   try{ await rpc('guardar',{p_tabla:'fijos',p_fila:fila}); closeSheet(); toast('Guardado'); await load() }catch(e){ fErr(e.message) }
 }

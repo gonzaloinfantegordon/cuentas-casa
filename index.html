@@ -324,7 +324,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-10-19-2';
+const VERSION = '2026-10-22-1';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -718,7 +718,7 @@ function itemHtml(m){
   const c = D.catById[m.categoria_id]; const p = D.posById[m.posicion_id];
   const titulo = m.tipo==='retirada' ? 'Retirada'+(p?' de '+p.nombre:'') : m.tipo==='ahorro'||m.tipo==='inversion' ? (p?p.nombre:(m.tipo==='ahorro'?'Ahorro':'Inversión')) : (c?c.nombre:'Sin categoría');
   const icono = m.tipo==='ahorro'?'🐷':m.tipo==='inversion'?'📈':m.tipo==='retirada'?'↩️':(c?c.icono:'•');
-  const meta = [m.nota, m.quien, m.origen==='iphone'?'iPhone':m.origen==='fijos'?'fijo':null].filter(Boolean).map(esc).join(' · ');
+  const meta = [m.tipo==='retirada'&&m.coste!=null?'resultado '+sgn(m.importe-m.coste):null, m.nota, m.quien, m.origen==='iphone'?'iPhone':m.origen==='fijos'?'fijo':null].filter(Boolean).map(esc).join(' · ');
   const signo = m.tipo==='gasto'?'−':m.tipo==='ingreso'?'+':m.tipo==='retirada'?'← ':'→ ';
   return `<button class="item" onclick="editar('${m.id}')"><span class="ico">${esc(icono)}</span><span class="t"><div>${esc(titulo)}</div>${meta?`<small>${meta}</small>`:''}</span><span class="amt ${m.tipo}">${signo}${eur(m.importe)}</span></button>`;
 }
@@ -788,10 +788,11 @@ function vPatri(){
 function aportadoAnio(){
   const y = ymNow().slice(0,4);
   const H = D.historico.filter(h=>h.mes.startsWith(y));
-  const a = H.reduce((s,h)=>s+ +h.ahorro,0), i = H.reduce((s,h)=>s+ +h.inversion,0), ret = H.reduce((s,h)=>s+ +(h.retirada||0),0), ing=H.reduce((s,h)=>s+ +h.ingresos,0);
+  const a = H.reduce((s,h)=>s+ +h.ahorro,0), i = H.reduce((s,h)=>s+ +h.inversion,0), ret = H.reduce((s,h)=>s+ +(h.retirada||0),0), ing=H.reduce((s,h)=>s+ +h.ingresos,0), real=H.reduce((s,h)=>s+ +(h.realizado||0),0);
   return `<div class="ledger"><div class="row"><span><i class="dot" style="background:var(--ahorro)"></i>A ahorro</span><span class="num">${eur(a)}</span></div>
     <div class="row"><span><i class="dot" style="background:var(--inv)"></i>A inversión</span><span class="num">${eur(i)}</span></div>
     ${ret?`<div class="row"><span><i class="dot" style="background:var(--warn)"></i>Retirado</span><span class="num">−${eur(ret)}</span></div>`:''}
+    ${real?`<div class="row"><span>Ganancias por ventas ${y}</span><span class="num ${real>=0?'pos':'neg'}">${sgn(real)}</span></div>`:''}
     <div class="row total"><span>Tasa de ahorro ${y}</span><span class="num">${ing>0?pct((a+i-ret)/ing):'—'}</span></div></div>`;
 }
 
@@ -837,7 +838,7 @@ dlg.addEventListener('click',e=>{ if(e.target===dlg) closeSheet() });
 let F = null; // estado del formulario de movimiento
 function nuevo(tipo='gasto',importe){
   const hoy = todayISO(); const fecha = hoy.startsWith(mes) ? hoy : ymRange(mes)[1] < hoy ? ymRange(mes)[1] : hoy;
-  F = {id:null,tipo,importe:importe?String(importe).replace('.',','):'',categoria_id:null,posicion_id:null,fecha,nota:'',quien:WHO,confirm:false,aviso:null,forzar:false};
+  F = {id:null,tipo,importe:importe?String(importe).replace('.',','):'',categoria_id:null,posicion_id:null,fecha,nota:'',quien:WHO,confirm:false,aviso:null,forzar:false,todo:false,coste:'',dest:undefined};
   if(tipo==='ahorro'||tipo==='inversion') F.posicion_id = defaultPos(tipo);
   sheetMov();
 }
@@ -848,18 +849,41 @@ function editar(id){
 }
 function posDe(tipo){ return D.posiciones.filter(p=>p.activa && (tipo==='retirada' ? true : tipo==='ahorro'? p.tipo==='liquidez' : p.tipo!=='liquidez')).sort((a,b)=>(a.tipo==='liquidez'?0:1)-(b.tipo==='liquidez'?0:1)) }
 function defaultPos(tipo){ return posDe(tipo)[0]?.id||null }
+
+function esVenta(){ const p=D.posById[F.posicion_id]; return F.tipo==='retirada' && p && p.tipo!=='liquidez' }
+function costeVenta(){ const p=D.posById[F.posicion_id]; if(!esVenta()) return null; if(F.todo) return +p.aportado||0; const c=parseNum(F.coste); return isFinite(c)&&c>=0&&String(F.coste||'').trim()!=='' ? c : null }
+function textoResultado(){ const imp=parseNum(F.importe), c=costeVenta(); if(!(imp>0)||c==null) return ''; const g=imp-c; return `Resultado de la venta: <b class="${g>=0?'pos':'neg'}">${sgn(g)}</b>${c>0?` (${(g>=0?'+':'')+pct(g/c)})`:''}` }
+function actRes(){ sync(); const e=document.getElementById('fRes'); if(e) e.innerHTML=textoResultado() }
+function bloqueRetirada(){
+  if(F.tipo!=='retirada' || !F.posicion_id) return '';
+  const src=D.posById[F.posicion_id]; let html='';
+  if(esVenta()){
+    html+=`<label class="check"><input type="checkbox" id="fTodo" ${F.todo?'checked':''} onchange="sync();sheetMov()"> Vendo la posición entera</label>
+    <div class="field"><label for="fCoste">Lo que te costó lo que vendes (€)</label><input id="fCoste" inputmode="decimal" placeholder="Opcional" value="${F.todo?nf.format(+src.aportado||0).replace(/\./g,''):esc(F.coste||'')}" ${F.todo?'readonly':''} oninput="actRes()">
+      <small class="muted">${F.todo?'Es todo lo aportado a «'+esc(src.nombre)+'». En «Importe» pon lo que te han dado al vender.':'Si vendes una parte, pon lo que pagaste por esa parte. Así la app calcula lo que has ganado o perdido.'}</small>
+      <small id="fRes">${textoResultado()}</small></div>`;
+  }
+  if(!F.id){
+    const otros=D.posiciones.filter(p=>p.activa && p.id!==F.posicion_id).sort((a,b)=>(a.tipo==='liquidez'?0:1)-(b.tipo==='liquidez'?0:1));
+    if(F.dest===undefined) F.dest = esVenta() ? (otros.find(p=>p.tipo==='liquidez')?.id||'') : '';
+    html+=`<div class="field"><label for="fDest">¿A dónde va el dinero?</label><select id="fDest" onchange="sync()"><option value="" ${!F.dest?'selected':''}>Cuenta del día a día (cuenta en este mes)</option>${otros.map(p=>`<option value="${p.id}" ${F.dest===p.id?'selected':''}>${esc(p.nombre)}</option>`).join('')}</select>
+      <small class="muted">Si pasa a otra cuenta o inversión, se apunta también la entrada allí y el mes no cambia.</small></div>`;
+  }
+  return html;
+}
 function sheetMov(){
   const t=F.tipo;
   const cats = D.categorias.filter(c=>c.activa && c.tipo===(t==='ingreso'?'ingreso':'gasto')).sort((a,b)=>(a.naturaleza==='variable'?0:1)-(b.naturaleza==='variable'?0:1));
   const P = posDe(t);
   const selector = (t==='gasto'||t==='ingreso')
     ? `<div class="field"><label>Categoría</label><div class="catgrid">${cats.map(c=>`<button type="button" aria-pressed="${F.categoria_id===c.id}" onclick="F.categoria_id='${c.id}';sync();sheetMov()"><span>${esc(c.icono)}</span>${esc(c.nombre)}</button>`).join('')}</div></div>`
-    : `<div class="field"><label for="fPos">${t==='ahorro'?'Cuenta de ahorro':t==='retirada'?'¿De dónde sale el dinero?':'Dónde se invierte'}</label>${P.length?`<select id="fPos">${P.map(p=>`<option value="${p.id}" ${F.posicion_id===p.id?'selected':''}>${esc(p.nombre)}</option>`).join('')}</select>${t==='retirada'?'<small class="muted">Úsalo cuando paséis dinero de ahorros o inversiones a la cuenta del día a día. Resta de esa cuenta y cubre lo que falte este mes.</small>':''}`:`<p class="muted" style="margin:0">No hay ${t==='ahorro'||t==='retirada'?'cuentas de liquidez':'posiciones de inversión'}. <button type="button" class="btn small" onclick="closeSheet();setTab('patri');editPos(null,'${t==='ahorro'?'liquidez':'fondo'}')">Crear una</button></p>`}</div>`;
+    : `<div class="field"><label for="fPos">${t==='ahorro'?'Cuenta de ahorro':t==='retirada'?'¿De dónde sale el dinero?':'Dónde se invierte'}</label>${P.length?`<select id="fPos" onchange="sync();F.dest=undefined;sheetMov()">${P.map(p=>`<option value="${p.id}" ${F.posicion_id===p.id?'selected':''}>${esc(p.nombre)}</option>`).join('')}</select>${t==='retirada'?'<small class="muted">Para sacar dinero de una cuenta de ahorro o vender una inversión.</small>':''}`:`<p class="muted" style="margin:0">No hay ${t==='ahorro'||t==='retirada'?'cuentas de liquidez':'posiciones de inversión'}. <button type="button" class="btn small" onclick="closeSheet();setTab('patri');editPos(null,'${t==='ahorro'?'liquidez':'fondo'}')">Crear una</button></p>`}</div>`;
   openSheet(`<h3>${F.id?'Editar movimiento':'Apuntar'}</h3>
   <form class="form" onsubmit="event.preventDefault();guardarMov()">
     <div class="seg cinco" role="group" aria-label="Tipo">${[['gasto','Gasto'],['ingreso','Ingreso'],['ahorro','Ahorro'],['inversion','Inversión'],['retirada','Retirar']].map(([k,l])=>`<button type="button" aria-pressed="${t===k}" onclick="sync();F.tipo='${k}';F.categoria_id=null;F.posicion_id=${(k==='ahorro'||k==='inversion'||k==='retirada')?`defaultPos('${k}')`:'null'};F.aviso=null;sheetMov()">${l}</button>`).join('')}</div>
-    <div class="field"><label for="fImp">Importe (€)</label><input id="fImp" class="amount" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(F.importe)}" ${F.id?'':'autofocus'} required>${(t==='ahorro'||t==='inversion')?`<small class="muted">Disponible por repartir en ${esc(fmtMes(mes))}: <b>${eur(Math.max(0,calc().porAsignar+(F.id&&(F.tipo==='ahorro'||F.tipo==='inversion')?(+(D.movimientos.find(m=>m.id===F.id)||{}).importe||0):0)))}</b></small>`:''}</div>
+    <div class="field"><label for="fImp">Importe (€)</label><input id="fImp" class="amount" inputmode="decimal" autocomplete="off" oninput="if(esVenta())actRes()" placeholder="0,00" value="${esc(F.importe)}" ${F.id?'':'autofocus'} required>${(t==='ahorro'||t==='inversion')?`<small class="muted">Disponible por repartir en ${esc(fmtMes(mes))}: <b>${eur(Math.max(0,calc().porAsignar+(F.id&&(F.tipo==='ahorro'||F.tipo==='inversion')?(+(D.movimientos.find(m=>m.id===F.id)||{}).importe||0):0)))}</b></small>`:''}</div>
     ${selector}
+    ${bloqueRetirada()}
     <div class="field"><label for="fNota">Nota</label><input id="fNota" value="${esc(F.nota||'')}" placeholder="${t==='gasto'?'Opcional: Mercadona, cena con amigos…':t==='ingreso'?'Opcional: nómina de octubre…':'Opcional: transferencia mensual…'}"></div>
     <div class="field"><label for="fFecha">Fecha</label><div class="datebox"><input id="fFecha" type="date" value="${esc(F.fecha)}" required></div></div>
     <div class="field"><label for="fQuien">Quién</label><input id="fQuien" value="${esc(F.quien||'')}" placeholder="Nombre"></div>
@@ -871,6 +895,7 @@ function sheetMov(){
   </form>`);
 }
 function sync(){ // guarda lo escrito antes de re-dibujar la hoja
+  { const g=id=>document.getElementById(id); if(g('fTodo')) F.todo=g('fTodo').checked; if(g('fCoste')&&!F.todo) F.coste=g('fCoste').value; if(g('fDest')) F.dest=g('fDest').value; }
   const g=id=>document.getElementById(id);
   if(g('fImp')) F.importe=g('fImp').value; if(g('fFecha')) F.fecha=g('fFecha').value;
   if(g('fNota')) F.nota=g('fNota').value; if(g('fQuien')) F.quien=g('fQuien').value;
@@ -892,7 +917,7 @@ async function guardarMov(){
       return sheetMov();
     }
   }
-  if(F.tipo==='retirada' && !F.forzar){ const p=D.posById[F.posicion_id]; const previo=F.id?(D.movimientos.find(m=>m.id===F.id)||{}):{}; const saldo=(+p?.valor_actual||0)+(previo.tipo==='retirada'&&previo.posicion_id===F.posicion_id?+previo.importe:0);
+  if(F.tipo==='retirada' && !F.forzar && !(esVenta()&&F.todo)){ const p=D.posById[F.posicion_id]; const previo=F.id?(D.movimientos.find(m=>m.id===F.id)||{}):{}; const saldo=(+p?.valor_actual||0)+(previo.tipo==='retirada'&&previo.posicion_id===F.posicion_id?+previo.importe:0);
     if(p && imp>saldo+0.005){ F.aviso=`En «${esc(p.nombre)}» solo constan <b>${eur(saldo)}</b> y vas a sacar <b>${eur(imp)}</b>. Revisa el importe o actualiza antes el saldo en Patrimonio.`; return sheetMov() } }
   const cat = D.catById[F.categoria_id];
   const fila = {tipo:F.tipo, importe:Math.round(imp*100)/100, fecha:F.fecha, nota:F.nota.trim()||null, quien:(F.quien||'').trim()||null,
@@ -901,7 +926,16 @@ async function guardarMov(){
     fijo: F.tipo==='gasto' ? (F.fijo ?? (cat?.naturaleza==='fijo')) : false};
   if(F.id) fila.id=F.id;
   if(!F.id && F.tipo==='gasto' && document.getElementById('fFijo')==null) fila.fijo = cat?.naturaleza==='fijo';
-  try{ await rpc('guardar',{p_tabla:'movimientos',p_fila:fila}); closeSheet(); toast(F.id?'Movimiento actualizado':'Apuntado: '+eur(fila.importe));
+  if(F.tipo==='retirada'){ fila.coste = esVenta() ? costeVenta() : null }
+  const src = D.posById[F.posicion_id], venta = esVenta(), entera = venta && F.todo && !F.id;
+  const dest = (F.tipo==='retirada' && !F.id && F.dest) ? D.posById[F.dest] : null;
+  try{
+    if(entera) await rpc('guardar',{p_tabla:'posiciones',p_fila:{id:src.id, valor_actual:fila.importe, fecha_valor:F.fecha}});
+    await rpc('guardar',{p_tabla:'movimientos',p_fila:fila});
+    if(dest) await rpc('guardar',{p_tabla:'movimientos',p_fila:{tipo:dest.tipo==='liquidez'?'ahorro':'inversion', importe:fila.importe, fecha:F.fecha, posicion_id:dest.id, nota:'Desde '+src.nombre+(F.nota.trim()?' · '+F.nota.trim():''), quien:fila.quien, fijo:false}});
+    if(entera) await rpc('guardar',{p_tabla:'posiciones',p_fila:{id:src.id, activa:false}});
+    closeSheet();
+    toast(F.id?'Movimiento actualizado': venta ? `Venta apuntada${fila.coste!=null?': '+sgn(fila.importe-fila.coste):''}${dest?' → '+dest.nombre:''}` : 'Apuntado: '+eur(fila.importe)+(dest?' → '+dest.nombre:''));
     const ym=F.fecha.slice(0,7); if(ym!==mes){ mes=ym } await load() }
   catch(e){ fErr(e.message) }
 }

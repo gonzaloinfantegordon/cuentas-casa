@@ -324,7 +324,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-10-22-2';
+const VERSION = '2026-10-22-3';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -468,7 +468,7 @@ function vResumen(){
       <div class="bar-split" aria-hidden="true"><i style="width:${pAh}%;background:var(--accent-ink);opacity:.85"></i><i style="width:${100-pAh}%;background:var(--accent-ink);opacity:.35"></i></div>`;
   }
 
-  const pend = c.pendientes.length ? `<div class="notice"><span><b>${c.pendientes.length} fijo${c.pendientes.length>1?'s':''}</b> de ${esc(fmtMes(mes))} sin registrar (${[['gasto','en gastos'],['ingreso','en ingresos'],['ahorro','a ahorro'],['inversion','a inversión']].map(([t,l])=>{const v=c.pendientes.filter(f=>f.tipo===t).reduce((a,f)=>a+ +f.importe,0);return v?eur(v)+' '+l:''}).filter(Boolean).join(' y ')}).</span><button class="btn small" onclick="registrarFijos()">Registrar ahora</button></div>` : '';
+  const pend = '';
 
   // categorías
   const cats = Object.entries(c.porCat).map(([id,v])=>({c:D.catById[id]||{nombre:'Sin categoría',icono:'•',naturaleza:'variable'},v})).sort((a,b)=>b.v-a.v);
@@ -739,9 +739,9 @@ function vFijos(){
     <section class="panel"><header><h2>Gastos fijos</h2><button class="btn small primary" onclick="editFijo(null,'gasto')">Añadir gasto fijo</button></header>${tabla('gasto')}
       <p class="muted"><small>Alquiler o hipoteca, luz, seguros, suscripciones… Los trimestrales y anuales cuentan en la previsión como su parte proporcional al mes.</small></p></section>
     <section class="panel"><header><h2>Ingresos fijos</h2><button class="btn small primary" onclick="editFijo(null,'ingreso')">Añadir ingreso fijo</button></header>${tabla('ingreso')}
-      <p class="muted"><small>Cada mes podéis registrar todos los fijos de golpe desde el aviso del Resumen. Si un mes cambia el importe (la luz, por ejemplo), editad ese movimiento.</small></p></section>
+      <p class="muted"><small>Se apuntan solos el día que toca. Si un mes cambia el importe (la luz, por ejemplo) o no se cobra, editad o borrad ese movimiento.</small></p></section>
     <section class="panel"><header><h2>Aportaciones automáticas</h2><button class="btn small primary" onclick="editFijo(null,'inversion')">Añadir aportación</button></header>${tabla('aport')}
-      <p class="muted"><small>Lo que metéis cada mes en un fondo, en acciones o en la cuenta de ahorro. Se registran con el resto de fijos y suben solas la posición en Patrimonio.</small></p></section>
+      <p class="muted"><small>Lo que metéis cada mes en un fondo, en acciones o en la cuenta de ahorro. Se apuntan solas el día que toca y suben la posición en Patrimonio.</small></p></section>
   </div>`;
 }
 function periodoTxt(x){ return {1:'mes',2:'2 meses',3:'trimestre',4:'4 meses',6:'semestre',12:'año'}[x.cada_meses] + (x.cada_meses>1?` <small class="muted">desde ${new Date(2000,x.mes_inicio-1,1).toLocaleDateString('es-ES',{month:'short'})}</small>`:'') }

@@ -324,7 +324,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-10-22-3';
+const VERSION = '2026-10-22-4';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -732,7 +732,7 @@ function vFijos(){
     if(!rows.length) return `<div class="empty">${tipo==='aport'?'Ninguna aportación automática todavía.':'Ningún '+tipo+' fijo todavía.'}</div>`;
     const tot = rows.filter(x=>x.activo).reduce((a,x)=>a+x.importe/x.cada_meses,0);
     return `<div class="scroll"><table class="tbl"><thead><tr><th>Concepto</th><th>Cada</th><th class="r">Importe</th><th class="r">Al mes</th></tr></thead><tbody>
-      ${rows.map(x=>{const c=D.catById[x.categoria_id]; const ps=D.posById[x.posicion_id]; return `<tr class="click ${x.activo?'':'off'}" onclick="editFijo('${x.id}')"><td>${c?esc(c.icono)+' ':''}${ps?(x.tipo==='ahorro'?'🐷 ':'📈 '):''}${esc(x.nombre)}<br><small class="muted">día ${x.dia}${c?' · '+esc(c.nombre):''}${ps?' · → '+esc(ps.nombre)+(ps.activa?'':' (archivada)'):''}${x.activo?'':' · pausado'}</small></td><td>${periodoTxt(x)}</td><td class="r num">${eur(x.importe)}</td><td class="r num">${eur(x.importe/x.cada_meses)}</td></tr>`}).join('')}
+      ${rows.map(x=>{const c=D.catById[x.categoria_id]; const ps=D.posById[x.posicion_id]; return `<tr class="click ${x.activo?'':'off'}" onclick="editFijo('${x.id}')"><td>${c?esc(c.icono)+' ':''}${ps?(x.tipo==='ahorro'?'🐷 ':'📈 '):''}${esc(x.nombre)}<br><small class="muted">día ${x.dia}${c?' · '+esc(c.nombre):''}${ps?' · → '+esc(ps.nombre)+(ps.activa?'':' (archivada)'):''}${x.desde&&x.desde.slice(0,7)>ymNow()?' · empieza en '+esc(fmtMes(x.desde.slice(0,7))):''}${x.activo?'':' · pausado'}</small></td><td>${periodoTxt(x)}</td><td class="r num">${eur(x.importe)}</td><td class="r num">${eur(x.importe/x.cada_meses)}</td></tr>`}).join('')}
       <tr><td colspan="3"><b>Total al mes</b></td><td class="r num"><b>${eur(tot)}</b></td></tr></tbody></table></div>`;
   };
   return `<div class="grid two">
@@ -960,7 +960,7 @@ function editFijo(id,tipo){
       : `<p class="muted" style="margin:0">Primero crea el fondo o la cuenta en Patrimonio. <button type="button" class="btn small" onclick="closeSheet();setTab('patri');editPos(null,'fondo')">Crear</button></p>`)
     : `<div class="field"><label for="xC">Categoría</label><select id="xC"><option value="">—</option>${cats.map(c=>`<option value="${c.id}" ${x.categoria_id===c.id?'selected':''}>${esc(c.icono)} ${esc(c.nombre)}</option>`).join('')}</select></div>`}
     <div class="row2"><div class="field"><label for="xP">${aport?'Se aporta cada':'Se paga cada'}</label><select id="xP">${[[1,'mes'],[2,'2 meses'],[3,'trimestre'],[4,'4 meses'],[6,'semestre'],[12,'año']].map(([v,l])=>`<option value="${v}" ${x.cada_meses==v?'selected':''}>${l}</option>`).join('')}</select></div>
-    <div class="field"><label for="xM">${aport?'Primer mes':'Primer mes de pago'}</label><select id="xM">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${x.mes_inicio==i+1?'selected':''}>${new Date(2000,i,1).toLocaleDateString('es-ES',{month:'long'})}</option>`).join('')}</select></div></div>
+    <div class="field"><label for="xM">Empieza en</label><select id="xM">${Array.from({length:12},(_,i)=>{ const ym=ymAdd(ymNow(),i); const mm=+ym.slice(5); return `<option value="${mm}" ${x.mes_inicio==mm?'selected':''}>${esc(fmtMes(ym))}</option>` }).join('')}</select></div></div>
     <label class="check"><input type="checkbox" id="xA" ${x.activo?'checked':''}> Activo</label>
     <div id="fErr" class="err" hidden></div>
     <div class="actions"><button type="button" class="btn" onclick="closeSheet()">Cancelar</button><button class="btn primary" type="submit">Guardar</button></div>

@@ -324,7 +324,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-11-02-1';
+const VERSION = '2026-11-02-2';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -844,7 +844,7 @@ dlg.addEventListener('click',e=>{ if(e.target===dlg) closeSheet() });
 let F = null; // estado del formulario de movimiento
 function nuevo(tipo='gasto',importe){
   const hoy = todayISO(); const fecha = hoy.startsWith(mes) ? hoy : ymRange(mes)[1] < hoy ? ymRange(mes)[1] : hoy;
-  F = {id:null,tipo,importe:importe?String(importe).replace('.',','):'',categoria_id:null,posicion_id:null,fecha,nota:'',quien:WHO,confirm:false,aviso:null,forzar:false,todo:false,coste:'',dest:undefined};
+  F = {id:null,tipo,importe:importe?String(importe).replace('.',','):'',categoria_id:null,posicion_id:null,fecha,nota:'',quien:WHO,confirm:false,aviso:null,forzar:false,todo:false,coste:'',dest:undefined,repetir:false};
   if(tipo==='ahorro'||tipo==='inversion') F.posicion_id = defaultPos(tipo);
   sheetMov();
 }
@@ -893,7 +893,8 @@ function sheetMov(){
     <div class="field"><label for="fNota">Nota</label><input id="fNota" value="${esc(F.nota||'')}" placeholder="${t==='gasto'?'Opcional: Mercadona, cena con amigos…':t==='ingreso'?'Opcional: nómina de octubre…':'Opcional: transferencia mensual…'}"></div>
     <div class="field"><label for="fFecha">Fecha</label><div class="datebox"><input id="fFecha" type="date" value="${esc(F.fecha)}" required></div></div>
     <div class="field"><label for="fQuien">Quién</label><input id="fQuien" value="${esc(F.quien||'')}" placeholder="Nombre"></div>
-    ${t==='gasto'?`<label class="check"><input type="checkbox" id="fFijo" ${F.fijo?'checked':''}> Cuenta como gasto fijo</label>`:''}
+    ${(t==='gasto'||t==='ingreso') ? (F.fijo_id ? `<p class="muted" style="margin:0"><small>🔁 Viene de un fijo: se repite cada mes. Para cambiarlo, ve a la pestaña Fijos.</small></p>`
+      : `<label class="check"><input type="checkbox" id="fRep" ${F.repetir?'checked':''}> 🔁 Se repite cada mes (añadir a Fijos)</label>`) : ''}
     <div id="fErr" class="err" hidden></div>
     ${F.aviso?`<div class="confirm" style="background:var(--warn-soft)"><span>${F.aviso}</span><button type="button" class="btn small" onclick="F.forzar=true;guardarMov()">Guardar igualmente</button><button type="button" class="btn small" onclick="F.aviso=null;sync();sheetMov()">Corregir</button></div>`:''}
     ${F.confirm?`<div class="confirm"><span>¿Borrar este movimiento?</span><button type="button" class="btn small danger" onclick="anular()">Sí, borrar</button><button type="button" class="btn small" onclick="F.confirm=false;sync();sheetMov()">No</button></div>`:''}
@@ -905,7 +906,7 @@ function sync(){ // guarda lo escrito antes de re-dibujar la hoja
   const g=id=>document.getElementById(id);
   if(g('fImp')) F.importe=g('fImp').value; if(g('fFecha')) F.fecha=g('fFecha').value;
   if(g('fNota')) F.nota=g('fNota').value; if(g('fQuien')) F.quien=g('fQuien').value;
-  if(g('fPos')) F.posicion_id=g('fPos').value; if(g('fFijo')) F.fijo=g('fFijo').checked;
+  if(g('fPos')) F.posicion_id=g('fPos').value; if(g('fRep')) F.repetir=g('fRep').checked;
 }
 function fErr(msg){ const e=$('#fErr'); e.textContent=msg; e.hidden=false }
 async function guardarMov(){
@@ -929,19 +930,23 @@ async function guardarMov(){
   const fila = {tipo:F.tipo, importe:Math.round(imp*100)/100, fecha:F.fecha, nota:F.nota.trim()||null, quien:(F.quien||'').trim()||null,
     categoria_id:(F.tipo==='gasto'||F.tipo==='ingreso')?F.categoria_id:null,
     posicion_id:(F.tipo==='ahorro'||F.tipo==='inversion'||F.tipo==='retirada')?F.posicion_id:null,
-    fijo: F.tipo==='gasto' ? (F.fijo ?? (cat?.naturaleza==='fijo')) : false};
+    fijo: F.tipo==='gasto' ? (!!F.repetir || !!F.fijo_id || (F.id ? !!F.fijo : cat?.naturaleza==='fijo')) : false};
   if(F.id) fila.id=F.id;
-  if(!F.id && F.tipo==='gasto' && document.getElementById('fFijo')==null) fila.fijo = cat?.naturaleza==='fijo';
   if(F.tipo==='retirada'){ fila.coste = esVenta() ? costeVenta() : null }
   const src = D.posById[F.posicion_id], venta = esVenta(), entera = venta && F.todo && !F.id;
   const dest = (F.tipo==='retirada' && !F.id && F.dest) ? D.posById[F.dest] : null;
   try{
+    if(F.repetir && !F.fijo_id && (F.tipo==='gasto'||F.tipo==='ingreso')){
+      const [yy,mm,dd]=F.fecha.split('-').map(Number);
+      const fid = await rpc('guardar',{p_tabla:'fijos',p_fila:{nombre:(F.nota||'').trim()||(cat?cat.nombre:'Fijo'), tipo:F.tipo, importe:fila.importe, categoria_id:fila.categoria_id, dia:dd, cada_meses:1, mes_inicio:mm, desde:F.fecha.slice(0,7)+'-01', activo:true}});
+      fila.fijo_id = fid; fila.periodo = F.fecha.slice(0,7);
+    }
     if(entera) await rpc('guardar',{p_tabla:'posiciones',p_fila:{id:src.id, valor_actual:fila.importe, fecha_valor:F.fecha}});
     await rpc('guardar',{p_tabla:'movimientos',p_fila:fila});
     if(dest) await rpc('guardar',{p_tabla:'movimientos',p_fila:{tipo:dest.tipo==='liquidez'?'ahorro':'inversion', importe:fila.importe, fecha:F.fecha, posicion_id:dest.id, nota:'Desde '+src.nombre+(F.nota.trim()?' · '+F.nota.trim():''), quien:fila.quien, fijo:false}});
     if(entera) await rpc('guardar',{p_tabla:'posiciones',p_fila:{id:src.id, activa:false}});
     closeSheet();
-    toast(F.id?'Movimiento actualizado': venta ? `Venta apuntada${fila.coste!=null?': '+sgn(fila.importe-fila.coste):''}${dest?' → '+dest.nombre:''}` : 'Apuntado: '+eur(fila.importe)+(dest?' → '+dest.nombre:''));
+    toast(F.repetir&&!F.fijo_id?'Apuntado y añadido a Fijos: se repetirá cada mes': F.id?'Movimiento actualizado': venta ? `Venta apuntada${fila.coste!=null?': '+sgn(fila.importe-fila.coste):''}${dest?' → '+dest.nombre:''}` : 'Apuntado: '+eur(fila.importe)+(dest?' → '+dest.nombre:''));
     const ym=F.fecha.slice(0,7); if(ym!==mes){ mes=ym } await load() }
   catch(e){ fErr(e.message) }
 }

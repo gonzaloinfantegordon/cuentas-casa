@@ -302,7 +302,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 
 <div id="app" hidden>
   <header class="top">
-    <div class="brand"><i></i>Cuentas de Casa</div>
+    <div class="brand"><i></i>Cuentas de Casa <small id="hogarN" class="muted" style="font-family:var(--f-body);font-weight:500;font-size:.8rem"></small></div>
     <div class="month" aria-label="Mes">
       <button id="prevM" aria-label="Mes anterior">‹</button><span id="mLabel"></span><button id="nextM" aria-label="Mes siguiente">›</button>
     </div>
@@ -324,7 +324,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-10-22-4';
+const VERSION = '2026-11-02-1';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -432,6 +432,7 @@ function calc(){
 /* ---------- render ---------- */
 function render(){
   $('#mLabel').textContent = cap(fmtMes(mes));
+  if(D && D.hogar) $('#hogarN').textContent = '· '+D.hogar;
   $('#nextM').disabled = mes >= ymAdd(ymNow(),1);
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected', b.dataset.tab===tab));
   const v = $('#view');
@@ -818,6 +819,7 @@ function vAjustes(){
       <section class="panel">
         <header><h2>En este dispositivo</h2></header>
         <form class="form" onsubmit="event.preventDefault();WHO=whoSet.value.trim();store.set('who',WHO);toast('Guardado')">
+          <p style="margin:0">Estás en la cuenta <b>${esc(D.hogar||'')}</b>.</p>
           <div class="field"><label for="whoSet">Tu nombre (se apunta en cada movimiento)</label><input id="whoSet" value="${esc(WHO)}"></div>
           <div class="actions"><button class="btn danger left" type="button" onclick="logout()">Cerrar sesión</button><button class="btn" type="submit">Guardar</button></div>
         </form>

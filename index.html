@@ -324,7 +324,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-11-02-2';
+const VERSION = '2026-11-04-1';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -354,7 +354,7 @@ const eur = (n,dec=true) => (dec?nf:nf0).format(Math.round((+n||0)*100)/100)+' �
 const sgn = n => (n>0?'+':n<0?'−':'')+eur(Math.abs(n));
 const pct = n => (isFinite(n)? (n*100).toLocaleString('es-ES',{maximumFractionDigits:1}) : '0')+' %';
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const parseNum = s => { if(typeof s==='number') return s; s=String(s||'').replace(/[€\s]/g,''); if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.'); const n=parseFloat(s); return isFinite(n)?n:NaN };
+const parseNum = s => { if(typeof s==='number') return s; s=String(s||'').replace(/[€\s]/g,''); if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.'); else if(/^-?\d{1,3}(\.\d{3})+$/.test(s)) s=s.replace(/\./g,''); const n=parseFloat(s); return isFinite(n)?n:NaN };
 const $ = s => document.querySelector(s);
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2600) }
 
@@ -991,9 +991,9 @@ function editPos(id,tipoDef='fondo'){
   openSheet(`<h3>${id?esc(p.nombre):'Nueva posición'}</h3>
   <form class="form" onsubmit="event.preventDefault();guardarPos('${id||''}')">
     <div class="field"><label for="pN">Nombre</label><input id="pN" value="${esc(p.nombre)}" placeholder="Indexa, MSCI World, Apple, Bitcoin, cuenta remunerada…" required ${id?'':'autofocus'}></div>
-    <div class="field"><label for="pT">Tipo</label><select id="pT">${Object.entries(TIPOS_POS).map(([k,l])=>`<option value="${k}" ${p.tipo===k?'selected':''}>${l}</option>`).join('')}</select></div>
-    <div class="row2"><div class="field"><label for="pA">Aportado (€)</label><input id="pA" inputmode="decimal" value="${p.aportado===''?'':nf.format(p.aportado).replace(/\./g,'')}" placeholder="0,00"></div>
-    <div class="field"><label for="pV">Valor actual (€)</label><input id="pV" inputmode="decimal" value="${p.valor_actual===''?'':nf.format(p.valor_actual).replace(/\./g,'')}" placeholder="0,00"></div></div>
+    <div class="field"><label for="pT">Tipo</label><select id="pT" onchange="const l=this.value==='liquidez';pAwrap.hidden=l;pVlab.textContent=l?'Saldo actual (€)':'Valor actual (€)'">${Object.entries(TIPOS_POS).map(([k,l])=>`<option value="${k}" ${p.tipo===k?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="row2"><div class="field" id="pAwrap" ${p.tipo==='liquidez'?'hidden':''}><label for="pA">Aportado (€)</label><input id="pA" inputmode="decimal" value="${p.aportado===''?'':nf.format(p.aportado).replace(/\./g,'')}" placeholder="0,00"></div>
+    <div class="field"><label for="pV" id="pVlab">${p.tipo==='liquidez'?'Saldo actual (€)':'Valor actual (€)'}</label><input id="pV" inputmode="decimal" value="${p.valor_actual===''?'':nf.format(p.valor_actual).replace(/\./g,'')}" placeholder="0,00"></div></div>
     ${id?'<p class="muted" style="margin:0"><small>Las aportaciones que apuntéis se suman solas. Aquí cambia sobre todo el valor actual.</small></p>':''}
     <div class="field"><label for="pNo">Notas</label><input id="pNo" value="${esc(p.notas||'')}" placeholder="Broker, ISIN, condiciones…"></div>
     ${id?`<label class="check"><input type="checkbox" id="pAc" ${p.activa?'':'checked'}> Archivar (ya no la tenemos)</label>`:''}
@@ -1002,8 +1002,10 @@ function editPos(id,tipoDef='fondo'){
   </form>`);
 }
 async function guardarPos(id){
-  const a=parseNum(pA.value||'0'), v=parseNum(pV.value||(pA.value||'0'));
-  if(!(a>=0)||!(v>=0)) return fErr('Revisa los importes.');
+  const liq = pT.value==='liquidez';
+  const v=parseNum(pV.value||(pA.value||'0')); let a = liq ? v : parseNum(pA.value||'0');
+  if(!isFinite(v) || v<0) return fErr('Escribe el valor actual: un número igual o mayor que cero.');
+  if(!isFinite(a)) return fErr('Revisa el importe aportado.');
   const fila={nombre:pN.value.trim(),tipo:pT.value,aportado:Math.round(a*100)/100,valor_actual:Math.round(v*100)/100,notas:pNo.value.trim()||null,fecha_valor:todayISO()};
   if(id){ fila.id=id; fila.activa=!document.getElementById('pAc').checked }
   try{ await rpc('guardar',{p_tabla:'posiciones',p_fila:fila}); closeSheet(); toast('Guardado'); await load() }catch(e){ fErr(e.message) }

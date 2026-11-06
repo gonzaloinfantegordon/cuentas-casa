@@ -281,6 +281,8 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 .field select:focus-visible,.field input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .seg.cinco{grid-template-columns:repeat(5,minmax(0,1fr))}
 .seg.cinco button{font-size:.8rem;padding:7px 1px}
+.amt small.saldo{display:block;font-size:.72rem;color:var(--muted);text-align:right;margin-top:2px}
+.amt small.saldo.neg{color:var(--gasto)}
 .loading{opacity:.55;transition:opacity .2s}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -324,7 +326,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-11-04-1';
+const VERSION = '2026-11-06-1';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -672,7 +674,7 @@ function movsBind(){
   c.onchange=()=>{ Q.cat=c.value; movsRefresh() };
   p.onchange=()=>{ Q.periodo=p.value; movsRefresh() };
 }
-function listaAgrupada(M, porMes){
+function listaAgrupada(M, porMes, saldos){
   let html='', last='';
   M.forEach(m=>{
     const k = porMes ? m.fecha.slice(0,7) : m.fecha;
@@ -681,7 +683,7 @@ function listaAgrupada(M, porMes){
         html+=`<div class="day month-h"><span>${esc(cap(fmtMes(k)))}</span><span class="num">${sub.length} · ${g?eur(g):''}</span></div>` }
       else { const d=new Date(m.fecha+'T12:00'); html+=`<div class="day">${cap(d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))}</div>` }
     }
-    html += itemHtml(m);
+    html += itemHtml(m, saldos?saldos[m.id]:null);
   });
   return html;
 }
@@ -691,7 +693,7 @@ async function movsRefresh(){
   if(!movsActivo()){
     const M=D.movimientos.filter(filtroTipo); const tot=M.reduce((a,m)=>a+ +m.importe,0);
     box.innerHTML = `<p class="muted" style="margin:6px 0"><small>${M.length} movimiento${M.length===1?'':'s'} en ${esc(fmtMes(mes))}${movFilter!=='todos'?' · '+eur(tot):''}</small></p>
-      <div class="list">${listaAgrupada(M,false) || '<div class="empty">No hay movimientos en '+esc(fmtMes(mes))+'.</div>'}</div>`;
+      <div class="list">${listaAgrupada(M,false,saldosMes()) || '<div class="empty">No hay movimientos en '+esc(fmtMes(mes))+'.</div>'}</div>`;
     return;
   }
   const [ini,fin]=ymRange(mes);
@@ -717,13 +719,18 @@ async function movsRefresh(){
     </div>`:''}
     <div class="list">${listaAgrupada(M, Q.periodo!=='mes') || '<div class="empty">No hay movimientos que coincidan. Prueba con otra palabra o un periodo más largo.</div>'}</div>`;
 }
-function itemHtml(m){
+function efecto(m){ return m.tipo==='ingreso'||m.tipo==='retirada' ? +m.importe : -m.importe }
+function saldosMes(){ // saldo disponible del mes después de cada movimiento, en orden cronológico
+  const asc=[...D.movimientos].sort((a,b)=> a.fecha<b.fecha?-1:a.fecha>b.fecha?1:(a.creado<b.creado?-1:a.creado>b.creado?1:0));
+  let acc=0; const map={}; asc.forEach(m=>{ acc+=efecto(m); map[m.id]=acc }); return map;
+}
+function itemHtml(m, saldo){
   const c = D.catById[m.categoria_id]; const p = D.posById[m.posicion_id];
   const titulo = m.tipo==='retirada' ? 'Retirada'+(p?' de '+p.nombre:'') : m.tipo==='ahorro'||m.tipo==='inversion' ? (p?p.nombre:(m.tipo==='ahorro'?'Ahorro':'Inversión')) : (c?c.nombre:'Sin categoría');
   const icono = m.tipo==='ahorro'?'🐷':m.tipo==='inversion'?'📈':m.tipo==='retirada'?'↩️':(c?c.icono:'•');
   const meta = [m.tipo==='retirada'&&m.coste!=null?'resultado '+sgn(m.importe-m.coste):null, m.nota, m.quien, m.origen==='iphone'?'iPhone':m.origen==='fijos'?'fijo':null].filter(Boolean).map(esc).join(' · ');
   const signo = m.tipo==='gasto'?'−':m.tipo==='ingreso'?'+':m.tipo==='retirada'?'← ':'→ ';
-  return `<button class="item" onclick="editar('${m.id}')"><span class="ico">${esc(icono)}</span><span class="t"><div>${esc(titulo)}</div>${meta?`<small>${meta}</small>`:''}</span><span class="amt ${m.tipo}">${signo}${eur(m.importe)}</span></button>`;
+  return `<button class="item" onclick="editar('${m.id}')"><span class="ico">${esc(icono)}</span><span class="t"><div>${esc(titulo)}</div>${meta?`<small>${meta}</small>`:''}</span><span class="amt ${m.tipo}">${signo}${eur(m.importe)}${saldo!=null?`<small class="saldo ${saldo<0?'neg':''}">disp. ${eur(saldo)}</small>`:''}</span></button>`;
 }
 
 function vFijos(){

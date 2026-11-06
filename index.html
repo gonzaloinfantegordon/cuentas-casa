@@ -326,7 +326,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-11-06-1';
+const VERSION = '2026-11-06-2';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -730,7 +730,7 @@ function itemHtml(m, saldo){
   const icono = m.tipo==='ahorro'?'🐷':m.tipo==='inversion'?'📈':m.tipo==='retirada'?'↩️':(c?c.icono:'•');
   const meta = [m.tipo==='retirada'&&m.coste!=null?'resultado '+sgn(m.importe-m.coste):null, m.nota, m.quien, m.origen==='iphone'?'iPhone':m.origen==='fijos'?'fijo':null].filter(Boolean).map(esc).join(' · ');
   const signo = m.tipo==='gasto'?'−':m.tipo==='ingreso'?'+':m.tipo==='retirada'?'← ':'→ ';
-  return `<button class="item" onclick="editar('${m.id}')"><span class="ico">${esc(icono)}</span><span class="t"><div>${esc(titulo)}</div>${meta?`<small>${meta}</small>`:''}</span><span class="amt ${m.tipo}">${signo}${eur(m.importe)}${saldo!=null?`<small class="saldo ${saldo<0?'neg':''}">disp. ${eur(saldo)}</small>`:''}</span></button>`;
+  return `<button class="item" onclick="editar('${m.id}')"><span class="ico">${esc(icono)}</span><span class="t"><div>${esc(titulo)}</div>${meta?`<small>${meta}</small>`:''}</span><span class="amt ${m.tipo}">${signo}${eur(m.importe)}${saldo!=null?`<small class="saldo ${saldo<0?'neg':''}">${eur(saldo)}</small>`:''}</span></button>`;
 }
 
 function vFijos(){

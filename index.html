@@ -326,7 +326,7 @@ nav.tabs .ti{display:none;width:22px;height:22px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const VERSION = '2026-11-06-2';
+const VERSION = '2026-11-07-1';
 const API = 'https://cugoclgilmlicktkyuxz.supabase.co/rest/v1/rpc/';
 const KEY = 'sb_publishable_hsz7J1oo_R03IVyyRS74uA_pJG49kbe';
 
@@ -395,9 +395,10 @@ function calc(){
   const ahorro = sum(m=>m.tipo==='ahorro');
   const inversion = sum(m=>m.tipo==='inversion');
   const retirada = sum(m=>m.tipo==='retirada');
+  const ajuste = sum(m=>m.tipo==='ajuste');
   const gastos = gFijos+gVar;
   const sobrante = ingresos-gastos;
-  const porAsignar = sobrante-ahorro-inversion+retirada;
+  const porAsignar = sobrante-ahorro-inversion+retirada+ajuste;
   const pA = (+D.ajustes.pct_ahorro)/100;
 
   // plan mensual con los fijos (equivalente mensual)
@@ -426,7 +427,7 @@ function calc(){
   const porCat = {};
   M.filter(m=>m.tipo==='gasto').forEach(m=>{ const k=m.categoria_id||'_'; porCat[k]=(porCat[k]||0)+ +m.importe });
 
-  return {ingresos,gFijos,gVar,gastos,ahorro,inversion,retirada,sobrante,porAsignar,pA,
+  return {ingresos,gFijos,gVar,gastos,ahorro,inversion,retirada,ajuste,sobrante,porAsignar,pA,
     sugAhorro: Math.max(0,porAsignar)*pA, sugInv: Math.max(0,porAsignar)*(1-pA),
     planIng,planFijos,planVar,planVarFuente,capacidad,planAport,gastoMensual,objetivo,liquidez,pendientes,porCat};
 }
@@ -501,8 +502,10 @@ function vResumen(){
           <div class="row"><span><i class="dot" style="background:var(--ahorro)"></i>Ya movido a ahorro</span><span class="num">${eur(c.ahorro)}</span></div>
           <div class="row"><span><i class="dot" style="background:var(--inv)"></i>Ya movido a inversión</span><span class="num">${eur(c.inversion)}</span></div>
           ${c.retirada?`<div class="row"><span><i class="dot" style="background:var(--warn)"></i>Sacado de ahorros</span><span class="num">+${eur(c.retirada)}</span></div>`:''}
+          ${c.ajuste?`<div class="row"><span>Ajuste de saldo <small class="muted">(cuadre con el banco)</small></span><span class="num">${sgn(c.ajuste)}</span></div>`:''}
           <div class="row total"><span>Por repartir</span><span class="num">${eur(c.porAsignar)}</span></div>
         </div>
+        ${esActual?`<p style="margin:10px 0 0"><button class="btn small" onclick="cuadrar()">Cuadrar con el banco</button></p>`:''}
       </section>
       <section class="panel">
         <header><h2>Gastos por categoría</h2><span class="muted"><small>la raya marca el presupuesto</small></span></header>
@@ -689,7 +692,7 @@ function listaAgrupada(M, porMes, saldos){
 }
 async function movsRefresh(){
   const box=$('#movRes'); if(!box) return;
-  const filtroTipo = m => movFilter==='todos' || m.tipo===movFilter;
+  const filtroTipo = m => m.tipo!=='ajuste' && (movFilter==='todos' || m.tipo===movFilter);
   if(!movsActivo()){
     const M=D.movimientos.filter(filtroTipo); const tot=M.reduce((a,m)=>a+ +m.importe,0);
     box.innerHTML = `<p class="muted" style="margin:6px 0"><small>${M.length} movimiento${M.length===1?'':'s'} en ${esc(fmtMes(mes))}${movFilter!=='todos'?' · '+eur(tot):''}</small></p>
@@ -719,7 +722,30 @@ async function movsRefresh(){
     </div>`:''}
     <div class="list">${listaAgrupada(M, Q.periodo!=='mes') || '<div class="empty">No hay movimientos que coincidan. Prueba con otra palabra o un periodo más largo.</div>'}</div>`;
 }
-function efecto(m){ return m.tipo==='ingreso'||m.tipo==='retirada' ? +m.importe : -m.importe }
+
+function cuadrar(){
+  const c=calc();
+  openSheet(`<h3>Cuadrar con el banco</h3>
+  <form class="form" onsubmit="event.preventDefault();guardarCuadre()">
+    <p class="muted" style="margin:0">Ahora la app calcula <b>${eur(c.porAsignar)}</b> disponibles este mes. Escribe lo que tenéis de verdad y la diferencia se ajusta sin crear ningún movimiento en la lista ni en las estadísticas.</p>
+    <div class="field"><label for="cReal">Saldo real ahora (€)</label><input id="cReal" class="amount" inputmode="decimal" placeholder="0,00" autofocus required></div>
+    <div id="fErr" class="err" hidden></div>
+    <div class="actions">${c.ajuste?`<button type="button" class="btn danger left" onclick="quitarCuadre()">Quitar ajuste</button>`:''}<button type="button" class="btn" onclick="closeSheet()">Cancelar</button><button class="btn primary" type="submit">Cuadrar</button></div>
+  </form>`);
+}
+async function guardarCuadre(){
+  const real=parseNum(cReal.value); if(!isFinite(real)) return fErr('Escribe el saldo, por ejemplo 2.012,50.');
+  const c=calc(); const diff=Math.round((real-c.porAsignar)*100)/100;
+  const prev=D.movimientos.find(m=>m.tipo==='ajuste');
+  try{
+    if(prev){ const nuevo=Math.round((+prev.importe+diff)*100)/100;
+      if(Math.abs(nuevo)<0.005) await rpc('anular',{p_id:prev.id}); else await rpc('guardar',{p_tabla:'movimientos',p_fila:{id:prev.id, importe:nuevo}}); }
+    else if(Math.abs(diff)>=0.005) await rpc('guardar',{p_tabla:'movimientos',p_fila:{tipo:'ajuste', importe:diff, fecha:todayISO(), nota:'Cuadre con el banco', quien:WHO||null, fijo:false}});
+    closeSheet(); toast('Saldo cuadrado: '+eur(real)); await load();
+  }catch(e){ fErr(e.message) }
+}
+async function quitarCuadre(){ const prev=D.movimientos.find(m=>m.tipo==='ajuste'); if(!prev) return closeSheet(); try{ await rpc('anular',{p_id:prev.id}); closeSheet(); toast('Ajuste quitado'); await load() }catch(e){ fErr(e.message) } }
+function efecto(m){ return m.tipo==='ingreso'||m.tipo==='retirada'||m.tipo==='ajuste' ? +m.importe : -m.importe }
 function saldosMes(){ // saldo disponible del mes después de cada movimiento, en orden cronológico
   const asc=[...D.movimientos].sort((a,b)=> a.fecha<b.fecha?-1:a.fecha>b.fecha?1:(a.creado<b.creado?-1:a.creado>b.creado?1:0));
   let acc=0; const map={}; asc.forEach(m=>{ acc+=efecto(m); map[m.id]=acc }); return map;
